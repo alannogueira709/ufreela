@@ -66,7 +66,7 @@ export default function Navbar({ role }: NavbarProps) {
               href="/"
               className="font-heading text-2xl font-bold tracking-tighter text-slate-950"
             >
-              uFree<span className="text-blue-600">.</span>
+              uFreela<span className="text-blue-600">.</span>
             </Link>
 
             <div className="hidden items-center gap-6 md:flex">
