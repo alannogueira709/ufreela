@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { SignupForm } from "@/components/signup-form";
+import { SignupForm } from "@/components/register/signup-form";
 
 const trustedAvatars = [
   { src: "/images/elena.jpeg", alt: "Elena Rodriguez" },

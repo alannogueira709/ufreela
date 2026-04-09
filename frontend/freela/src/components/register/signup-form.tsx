@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 import Link from "next/link";
 import { BriefcaseBusiness } from "lucide-react";
 
@@ -39,8 +43,34 @@ export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      alert("As senhas não coincidem. Por favor, tente novamente.");
+      return;
+    }
+
+    const response = await fetch("http://localhost:8000/api/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: formData.email, password: formData.password }),
+    });
+
+    const data = await response.json();
+    console.log(data)
+  }
+
   return (
-    <form className={cn("flex flex-col gap-6", className)} {...props}>
+    <form onSubmit={handleSubmit} className={cn("flex flex-col gap-6", className)} {...props}>
       <FieldGroup className="gap-5">
         <div className="space-y-2">
           <h2 className="text-3xl font-bold tracking-tight text-slate-950">
@@ -86,6 +116,8 @@ export function SignupForm({
             placeholder="name@company.com"
             required
             className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           />
         </Field>
 
