@@ -1,10 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BriefcaseBusiness, ChevronLeft, CircleUserRound } from "lucide-react";
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  ChevronLeft,
+  CircleUserRound,
+} from "lucide-react";
+import { motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { OnboardingFormData } from "./types";
 
 export type Role = "publisher" | "freelancer" | null;
 
@@ -27,20 +34,46 @@ const roleOptions = [
   },
 ];
 
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.28, ease: "easeOut" },
+  },
+};
+
 type ChooseRoleProps = {
+  updateData: (data: Partial<OnboardingFormData>) => void;
   selected: Role;
   onSelect: (role: Exclude<Role, null>) => void;
   onNext: () => void;
 };
 
 export default function ChooseRole({
+  updateData,
   selected,
   onSelect,
   onNext,
 }: ChooseRoleProps) {
   return (
-    <>
-      <div className="max-w-lg text-center">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="flex w-full flex-col items-center gap-12"
+    >
+      <motion.div variants={itemVariants} className="max-w-lg text-center">
         <h1 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-4xl">
           Bem vindo ao uFreela!
         </h1>
@@ -48,16 +81,20 @@ export default function ChooseRole({
           Queremos conhecer mais de voce para criar uma experiencia
           personalizada. Escolha a opcao que melhor descreve o seu perfil.
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid w-full max-w-2xl gap-4 sm:grid-cols-2">
+      <motion.div
+        variants={containerVariants}
+        className="grid w-full max-w-2xl gap-4 sm:grid-cols-2"
+      >
         {roleOptions.map((option) => {
           const Icon = option.icon;
           const isSelected = selected === option.id;
 
           return (
-            <button
+            <motion.button
               key={option.id}
+              variants={itemVariants}
               type="button"
               onClick={() => onSelect(option.id)}
               className={cn(
@@ -113,12 +150,12 @@ export default function ChooseRole({
                   <ArrowRight className="size-4" />
                 </div>
               </div>
-            </button>
+            </motion.button>
           );
         })}
-      </div>
+      </motion.div>
 
-      <div className="flex items-center gap-4">
+      <motion.div variants={itemVariants} className="flex items-center gap-4">
         <Link
           href="/register"
           className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-6 text-sm font-medium text-slate-700 transition-all hover:bg-slate-100 hover:text-slate-950"
@@ -129,12 +166,15 @@ export default function ChooseRole({
         <Button
           className="rounded-full bg-blue-600 px-8 hover:bg-blue-700"
           disabled={!selected}
-          onClick={onNext}
+          onClick={() => {
+            updateData({ role: selected });
+            onNext();
+          }}
         >
           Vamos la!
           <ArrowRight className="size-4" />
         </Button>
-      </div>
-    </>
+      </motion.div>
+    </motion.div>
   );
 }

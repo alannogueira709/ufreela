@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BriefcaseBusiness } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -14,6 +15,18 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+
+const PASSWORD_HINT =
+  "Use no minimo 8 caracteres, com 1 letra maiúscula, 1 minúscula e 1 caractere especial (!, @, #, $, %, ^, &,*).";
+
+function isStrongPassword(password: string) {
+  return (
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
+  );
+}
 
 function GoogleIcon() {
   return (
@@ -42,6 +55,7 @@ export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -55,6 +69,11 @@ export function SignupForm({
     e.preventDefault();
     setError("");
     setSuccessMessage("");
+
+    if (!isStrongPassword(formData.password)) {
+      setError(PASSWORD_HINT);
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError("As senhas nao coincidem. Por favor, tente novamente.");
@@ -85,19 +104,19 @@ export function SignupForm({
         const backendError =
           data?.detail ??
           data?.email?.[0] ??
+          data?.password?.[0] ??
           data?.confirm_password?.[0] ??
           "Nao foi possivel criar a conta. Por favor, tente novamente.";
 
         setError(backendError);
         return;
       }
-
-      setSuccessMessage("Conta criada com sucesso. Agora voce ja pode fazer login.");
       setFormData({
         email: "",
         password: "",
         confirmPassword: "",
       });
+      router.push("/register/complete");
     } catch {
       setError("Erro ao conectar com o servidor. Verifique se o backend esta rodando.");
     } finally {
@@ -218,7 +237,7 @@ export function SignupForm({
         </div>
 
         <FieldDescription className="-mt-2 text-xs leading-6 text-slate-400">
-          Use pelo menos 8 caracteres para manter sua conta protegida.
+          {PASSWORD_HINT}
         </FieldDescription>
 
         <Field>
@@ -232,17 +251,17 @@ export function SignupForm({
         </Field>
 
         <FieldDescription className="text-center text-sm text-slate-500">
-          Ja tem uma conta?{" "}
+          Já tem uma conta?{" "}
           <Link
             href="/login"
             className="font-semibold text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline"
           >
-            Faca login
+            Faça login
           </Link>
         </FieldDescription>
 
         <div className="border-t border-slate-100 pt-5 text-xs leading-6 text-slate-400">
-          Ao criar sua conta, voce concorda com nossos Termos, Politica de
+          Ao criar sua conta, você concorda com nossos Termos, Politica de
           Privacidade e Diretrizes da Plataforma.
         </div>
       </FieldGroup>

@@ -1,9 +1,9 @@
-from rest_framework import generics
-from rest_framework import status
+from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .serializers import UserSerializer
+
 
 class HealthCheckView(APIView):
     def get(self, request):
@@ -21,3 +21,4 @@ class RegisterView(generics.CreateAPIView):
             {"message": "User registered successfully"},
             status=status.HTTP_201_CREATED,
         )
+    
