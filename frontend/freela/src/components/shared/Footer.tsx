@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const platformLinks = [
-  { label: "Sobre a uFree", href: "/about" },
+  { label: "Sobre a uFreela", href: "/about" },
   { label: "Encontre Vagas", href: "/jobs" },
   { label: "Publique Vagas", href: "/jobs/post" },
 ];
@@ -31,7 +31,7 @@ export default function Footer() {
               href="/"
               className="font-heading text-4xl font-bold tracking-tight text-slate-950"
             >
-              uFree
+              uFreela
             </Link>
             <p className="max-w-sm text-[15px] font-medium leading-6 text-slate-400">
               Uma plataforma para conectar o ecossistema de inovação.
@@ -80,7 +80,7 @@ export default function Footer() {
 
         <div className="mt-6 border-t border-slate-200 pt-4">
           <p className="text-center text-[15px] font-medium text-slate-400">
-            © 2026 uFree. Todos os direitos reservados.
+            © 2026 uFreela. Todos os direitos reservados.
           </p>
         </div>
       </div>

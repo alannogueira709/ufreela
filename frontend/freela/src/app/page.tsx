@@ -11,7 +11,7 @@ function GuestHome() {
       <section className="container mx-auto space-y-6 px-8 pb-8 pt-6">
         <div className="space-y-3">
           <h1 className="font-heading text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">
-            Bem vindo ao uFree
+            Bem vindo ao uFreela
           </h1>
           <p className="max-w-2xl text-sm font-medium text-slate-500 md:text-base">
             Uma plataforma de oportunidades de trabalho feita para a comunidade

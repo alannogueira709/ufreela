@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-
 import Link from "next/link";
 import { BriefcaseBusiness } from "lucide-react";
 
@@ -48,29 +47,70 @@ export function SignupForm({
     password: "",
     confirmPassword: "",
   });
-
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
+    setError("");
+    setSuccessMessage("");
+
     if (formData.password !== formData.confirmPassword) {
-      alert("As senhas não coincidem. Por favor, tente novamente.");
+      setError("As senhas nao coincidem. Por favor, tente novamente.");
       return;
     }
 
-    const response = await fetch("http://localhost:8000/api/auth/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: formData.email, password: formData.password }),
-    });
+    try {
+      setIsSubmitting(true);
 
-    const data = await response.json();
-    console.log(data)
+      const response = await fetch("http://localhost:8000/api/auth/register/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          confirm_password: formData.confirmPassword,
+        }),
+      });
+
+      const contentType = response.headers.get("content-type") ?? "";
+      const data = contentType.includes("application/json")
+        ? await response.json()
+        : null;
+
+      if (!response.ok) {
+        const backendError =
+          data?.detail ??
+          data?.email?.[0] ??
+          data?.confirm_password?.[0] ??
+          "Nao foi possivel criar a conta. Por favor, tente novamente.";
+
+        setError(backendError);
+        return;
+      }
+
+      setSuccessMessage("Conta criada com sucesso. Agora voce ja pode fazer login.");
+      setFormData({
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
+    } catch {
+      setError("Erro ao conectar com o servidor. Verifique se o backend esta rodando.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className={cn("flex flex-col gap-6", className)} {...props}>
+    <form
+      onSubmit={handleSubmit}
+      className={cn("flex flex-col gap-6", className)}
+      {...props}
+    >
       <FieldGroup className="gap-5">
         <div className="space-y-2">
           <h2 className="text-3xl font-bold tracking-tight text-slate-950">
@@ -81,6 +121,18 @@ export function SignupForm({
             conectar com novas oportunidades.
           </p>
         </div>
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {successMessage}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Button
@@ -117,7 +169,9 @@ export function SignupForm({
             required
             className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, email: e.target.value })
+            }
           />
         </Field>
 
@@ -135,6 +189,10 @@ export function SignupForm({
               placeholder="Crie uma senha"
               required
               className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
+              value={formData.password}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
             />
           </Field>
 
@@ -151,6 +209,10 @@ export function SignupForm({
               placeholder="Repita a senha"
               required
               className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
+              value={formData.confirmPassword}
+              onChange={(e) =>
+                setFormData({ ...formData, confirmPassword: e.target.value })
+              }
             />
           </Field>
         </div>
@@ -162,9 +224,10 @@ export function SignupForm({
         <Field>
           <Button
             type="submit"
+            disabled={isSubmitting}
             className="h-12 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
           >
-            Criar conta
+            {isSubmitting ? "Criando conta..." : "Criar conta"}
           </Button>
         </Field>
 
