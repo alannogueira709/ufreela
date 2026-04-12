@@ -3,5 +3,5 @@ export interface NavItem{
     href: string;
 }
 
-export type UserRole = "candidate" | "publisher" | "admin" | "guest";
+export type UserRole = "freelancer" | "publisher" | "admin" | "guest";
 

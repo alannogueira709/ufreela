@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowRight, ChevronLeft } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -7,10 +8,17 @@ import { Button } from "@/components/ui/button";
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  formatCnpj,
+  formatCpf,
+  isValidCnpj,
+  isValidCpf,
+} from "@/lib/documents";
 import type { Role } from "./choose_role";
 import type { OnboardingFormData } from "./types";
 
@@ -48,6 +56,39 @@ export default function DataForm({
   data,
   updateData,
 }: DataFormProps) {
+  const [primaryError, setPrimaryError] = useState("");
+  const [documentError, setDocumentError] = useState("");
+
+  const handleNext = () => {
+    const primaryValue =
+      selected === "publisher" ? data.companyName.trim() : data.firstName.trim();
+    const documentValue = selected === "publisher" ? data.cnpj : data.cpf;
+
+    if (!primaryValue) {
+      setPrimaryError(
+        selected === "publisher"
+          ? "Razão social é obrigatória."
+          : "Nome é obrigatório."
+      );
+      return;
+    }
+
+    setPrimaryError("");
+
+    if (selected === "publisher") {
+      if (!isValidCnpj(documentValue)) {
+        setDocumentError("Informe um CNPJ válido.");
+        return;
+      }
+    } else if (!isValidCpf(documentValue)) {
+      setDocumentError("Informe um CPF válido.");
+      return;
+    }
+
+    setDocumentError("");
+    onNext();
+  };
+
   return (
     <motion.div
       variants={containerVariants}
@@ -85,12 +126,14 @@ export default function DataForm({
               }
               required
               value={selected === "publisher" ? data.companyName : data.firstName}
-              onChange={(e) =>
+              onChange={(e) => {
+                setPrimaryError("");
                 selected === "publisher"
                   ? updateData({ companyName: e.target.value })
-                  : updateData({ firstName: e.target.value })
-              }
+                  : updateData({ firstName: e.target.value });
+              }}
             />
+            <FieldError>{primaryError}</FieldError>
           </Field>
 
           {selected === "freelancer" && (
@@ -107,7 +150,9 @@ export default function DataForm({
                 className="h-11 rounded-lg border-slate-300 px-4 text-sm shadow-none focus-visible:border-blue-600 focus-visible:ring-blue-100"
                 placeholder="Sobrenome"
                 value={data.lastName}
-                onChange={(e) => updateData({ lastName: e.target.value })}
+                onChange={(e) => {
+                  updateData({ lastName: e.target.value });
+                }}
                 required
               />
             </Field>
@@ -129,14 +174,17 @@ export default function DataForm({
                   ? "00.000.000/0000-00"
                   : "000.000.000-00"
               }
+              maxLength={selected === "publisher" ? 18 : 14}
               required
               value={selected === "publisher" ? data.cnpj : data.cpf}
-              onChange={(e) =>
+              onChange={(e) => {
+                setDocumentError("");
                 selected === "publisher"
-                  ? updateData({ cnpj: e.target.value })
-                  : updateData({ cpf: e.target.value })
-              }
+                  ? updateData({ cnpj: formatCnpj(e.target.value) })
+                  : updateData({ cpf: formatCpf(e.target.value) });
+              }}
             />
+            <FieldError>{documentError}</FieldError>
           </Field>
 
           {selected === "freelancer" && (
@@ -179,7 +227,7 @@ export default function DataForm({
         </button>
         <Button
           className="rounded-full bg-blue-600 px-8 hover:bg-blue-700"
-          onClick={onNext}
+          onClick={handleNext}
         >
           Proximo
           <ArrowRight className="size-4" />
