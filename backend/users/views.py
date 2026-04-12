@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.shortcuts import redirect
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -15,6 +16,31 @@ from .services import AuthService, OnboardingService
 from .models import User
 
 
+def attach_auth_cookies(response, access: str, refresh: str):
+    response.set_cookie(
+        key=settings.AUTH_COOKIE_ACCESS,
+        value=access,
+        httponly=settings.AUTH_COOKIE_HTTP_ONLY,
+        secure=settings.AUTH_COOKIE_SECURE,
+        samesite=settings.AUTH_COOKIE_SAMESITE,
+        max_age=int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+    )
+    response.set_cookie(
+        key=settings.AUTH_COOKIE_REFRESH,
+        value=refresh,
+        httponly=settings.AUTH_COOKIE_HTTP_ONLY,
+        secure=settings.AUTH_COOKIE_SECURE,
+        samesite=settings.AUTH_COOKIE_SAMESITE,
+        max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+    )
+    return response
+
+
+def get_frontend_redirect_url(user: User) -> str:
+    path = "/register/complete" if not user.role else "/"
+    return f"{settings.FRONTEND_URL}{path}"
+
+
 class CustomTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = CustomTokenObtainPairSerializer
@@ -29,24 +55,22 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         refresh = response.data.get("refresh")
 
         if access and refresh:
-            response.set_cookie(
-                key=settings.AUTH_COOKIE_ACCESS,
-                value=access,
-                httponly=settings.AUTH_COOKIE_HTTP_ONLY,
-                secure=settings.AUTH_COOKIE_SECURE,
-                samesite=settings.AUTH_COOKIE_SAMESITE,
-                max_age=int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
-            )
-            response.set_cookie(
-                key=settings.AUTH_COOKIE_REFRESH,
-                value=refresh,
-                httponly=settings.AUTH_COOKIE_HTTP_ONLY,
-                secure=settings.AUTH_COOKIE_SECURE,
-                samesite=settings.AUTH_COOKIE_SAMESITE,
-                max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
-            )
+            attach_auth_cookies(response, access, refresh)
 
         response.data = {"message": "Login realizado com sucesso."}
+        return response
+
+
+class SocialLoginSuccessView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return redirect(f"{settings.FRONTEND_URL}/login?error=social_auth_failed")
+
+        refresh = RefreshToken.for_user(request.user)
+        response = redirect(get_frontend_redirect_url(request.user))
+        attach_auth_cookies(response, str(refresh.access_token), str(refresh))
         return response
 
 

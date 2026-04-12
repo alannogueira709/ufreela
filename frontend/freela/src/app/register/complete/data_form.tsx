@@ -128,9 +128,11 @@ export default function DataForm({
               value={selected === "publisher" ? data.companyName : data.firstName}
               onChange={(e) => {
                 setPrimaryError("");
-                selected === "publisher"
-                  ? updateData({ companyName: e.target.value })
-                  : updateData({ firstName: e.target.value });
+                if (selected === "publisher") {
+                  updateData({ companyName: e.target.value });
+                } else {
+                  updateData({ firstName: e.target.value });
+                }
               }}
             />
             <FieldError>{primaryError}</FieldError>
@@ -179,9 +181,11 @@ export default function DataForm({
               value={selected === "publisher" ? data.cnpj : data.cpf}
               onChange={(e) => {
                 setDocumentError("");
-                selected === "publisher"
-                  ? updateData({ cnpj: formatCnpj(e.target.value) })
-                  : updateData({ cpf: formatCpf(e.target.value) });
+                if (selected === "publisher") {
+                  updateData({ cnpj: formatCnpj(e.target.value) });
+                } else {
+                  updateData({ cpf: formatCpf(e.target.value) });
+                }
               }}
             />
             <FieldError>{documentError}</FieldError>

@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BriefcaseBusiness } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -15,9 +14,14 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { type SocialProvider } from "@/lib/social-auth";
+import { cn } from "@/lib/utils";
 
 const PASSWORD_HINT =
-  "Use no minimo 8 caracteres, com 1 letra maiúscula, 1 minúscula e 1 caractere especial (!, @, #, $, %, ^, &,*).";
+  "Use no minimo 8 caracteres, com 1 letra maiuscula, 1 minuscula e 1 caractere especial (!, @, #, $, %, ^, &, *).";
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
 function isStrongPassword(password: string) {
   return (
@@ -25,31 +29,6 @@ function isStrongPassword(password: string) {
     /[A-Z]/.test(password) &&
     /[a-z]/.test(password) &&
     /[^A-Za-z0-9]/.test(password)
-  );
-}
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
-
-function GoogleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4">
-      <path
-        d="M21.8 12.23c0-.79-.07-1.55-.2-2.27H12v4.3h5.49a4.7 4.7 0 0 1-2.04 3.08v2.56h3.3c1.93-1.78 3.05-4.4 3.05-7.67Z"
-        fill="#4285F4"
-      />
-      <path
-        d="M12 22c2.75 0 5.06-.91 6.74-2.47l-3.3-2.56c-.92.62-2.09.99-3.44.99-2.64 0-4.88-1.78-5.68-4.17H2.9v2.63A10 10 0 0 0 12 22Z"
-        fill="#34A853"
-      />
-      <path
-        d="M6.32 13.79A5.98 5.98 0 0 1 6 12c0-.62.11-1.23.32-1.79V7.58H2.9a10 10 0 0 0 0 8.84l3.42-2.63Z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M12 6.04c1.5 0 2.84.52 3.9 1.53l2.92-2.92C17.05 2.99 14.74 2 12 2A10 10 0 0 0 2.9 7.58l3.42 2.63C7.12 7.82 9.36 6.04 12 6.04Z"
-        fill="#EA4335"
-      />
-    </svg>
   );
 }
 
@@ -64,13 +43,13 @@ export function SignupForm({
     confirmPassword: "",
   });
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeSocialProvider, setActiveSocialProvider] =
+    useState<SocialProvider | null>(null);
 
-  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError("");
-    setSuccessMessage("");
 
     if (!isStrongPassword(formData.password)) {
       setError(PASSWORD_HINT);
@@ -78,13 +57,13 @@ export function SignupForm({
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("As senhas não coincidem. Por favor, tente novamente.");
+      setError("As senhas nao coincidem. Por favor, tente novamente.");
       return;
     }
 
     try {
       setIsSubmitting(true);
-  
+
       const registerResponse = await fetch(`${API_BASE_URL}/auth/register/`, {
         method: "POST",
         headers: {
@@ -104,15 +83,14 @@ export function SignupForm({
         : null;
 
       if (!registerResponse.ok) {
-        const backendError =
+        setError(
           data?.error ??
-          data?.detail ??
-          data?.email?.[0] ??
-          data?.password?.[0] ??
-          data?.confirm_password?.[0] ??
-          "Não foi possível criar a conta. Por favor, tente novamente.";
-
-        setError(backendError);
+            data?.detail ??
+            data?.email?.[0] ??
+            data?.password?.[0] ??
+            data?.confirm_password?.[0] ??
+            "Nao foi possivel criar a conta. Por favor, tente novamente."
+        );
         return;
       }
 
@@ -142,14 +120,12 @@ export function SignupForm({
         return;
       }
 
-      setFormData({
-        email: "",
-        password: "",
-        confirmPassword: "",
-      });
       router.push("/register/complete");
+      router.refresh();
     } catch {
-      setError("Erro ao conectar com o servidor. Verifique se o backend esta rodando.");
+      setError(
+        "Erro ao conectar com o servidor. Verifique se o backend esta rodando."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -172,36 +148,16 @@ export function SignupForm({
           </p>
         </div>
 
-        {error && (
+        {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
-        )}
+        ) : null}
 
-        {successMessage && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {successMessage}
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 justify-center rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          >
-            <GoogleIcon />
-            Google
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 justify-center rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          >
-            <BriefcaseBusiness className="size-4" />
-            Institucional
-          </Button>
-        </div>
+        <SocialAuthButtons
+          activeProvider={activeSocialProvider}
+          onStart={setActiveSocialProvider}
+        />
 
         <FieldSeparator>Ou continue com email</FieldSeparator>
 
@@ -219,8 +175,8 @@ export function SignupForm({
             required
             className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
             value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
+            onChange={(event) =>
+              setFormData((current) => ({ ...current, email: event.target.value }))
             }
           />
         </Field>
@@ -240,8 +196,11 @@ export function SignupForm({
               required
               className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
               value={formData.password}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  password: event.target.value,
+                }))
               }
             />
           </Field>
@@ -260,8 +219,11 @@ export function SignupForm({
               required
               className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
               value={formData.confirmPassword}
-              onChange={(e) =>
-                setFormData({ ...formData, confirmPassword: e.target.value })
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  confirmPassword: event.target.value,
+                }))
               }
             />
           </Field>
@@ -274,7 +236,7 @@ export function SignupForm({
         <Field>
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || activeSocialProvider !== null}
             className="h-12 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
           >
             {isSubmitting ? "Criando conta..." : "Criar conta"}
@@ -282,17 +244,17 @@ export function SignupForm({
         </Field>
 
         <FieldDescription className="text-center text-sm text-slate-500">
-          Já tem uma conta?{" "}
+          Ja tem uma conta?{" "}
           <Link
             href="/login"
             className="font-semibold text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline"
           >
-            Faça login
+            Faca login
           </Link>
         </FieldDescription>
 
         <div className="border-t border-slate-100 pt-5 text-xs leading-6 text-slate-400">
-          Ao criar sua conta, você concorda com nossos Termos, Politica de
+          Ao criar sua conta, voce concorda com nossos Termos, Politica de
           Privacidade e Diretrizes da Plataforma.
         </div>
       </FieldGroup>
