@@ -1,7 +1,10 @@
-import Link from "next/link";
-import { BriefcaseBusiness } from "lucide-react";
+"use client";
 
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+
+import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -11,36 +14,78 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { type SocialProvider } from "@/lib/social-auth";
+import { cn } from "@/lib/utils";
 
-function GoogleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4">
-      <path
-        d="M21.8 12.23c0-.79-.07-1.55-.2-2.27H12v4.3h5.49a4.7 4.7 0 0 1-2.04 3.08v2.56h3.3c1.93-1.78 3.05-4.4 3.05-7.67Z"
-        fill="#4285F4"
-      />
-      <path
-        d="M12 22c2.75 0 5.06-.91 6.74-2.47l-3.3-2.56c-.92.62-2.09.99-3.44.99-2.64 0-4.88-1.78-5.68-4.17H2.9v2.63A10 10 0 0 0 12 22Z"
-        fill="#34A853"
-      />
-      <path
-        d="M6.32 13.79A5.98 5.98 0 0 1 6 12c0-.62.11-1.23.32-1.79V7.58H2.9a10 10 0 0 0 0 8.84l3.42-2.63Z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M12 6.04c1.5 0 2.84.52 3.9 1.53l2.92-2.92C17.05 2.99 14.74 2 12 2A10 10 0 0 0 2.9 7.58l3.42 2.63C7.12 7.82 9.36 6.04 12 6.04Z"
-        fill="#EA4335"
-      />
-    </svg>
-  );
-}
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+  const [activeSocialProvider, setActiveSocialProvider] =
+    useState<SocialProvider | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(
+    searchParams.get("error") === "social_auth_failed"
+      ? "Nao foi possivel autenticar com o provedor escolhido."
+      : ""
+  );
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch(`${API_BASE_URL}/auth/login/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(formData),
+      });
+
+      const contentType = response.headers.get("content-type") ?? "";
+      const data = contentType.includes("application/json")
+        ? await response.json()
+        : null;
+
+      if (!response.ok) {
+        setError(
+          data?.detail ??
+            data?.error ??
+            "Nao foi possivel entrar. Verifique suas credenciais."
+        );
+        return;
+      }
+
+      router.push("/");
+      router.refresh();
+    } catch {
+      setError(
+        "Erro ao conectar com o servidor. Verifique se o backend esta rodando."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
-    <form className={cn("flex flex-col gap-6", className)} {...props}>
+    <form
+      onSubmit={handleSubmit}
+      className={cn("flex flex-col gap-6", className)}
+      {...props}
+    >
       <FieldGroup className="gap-5">
         <div className="space-y-2">
           <h2 className="text-3xl font-bold tracking-tight text-slate-950">
@@ -52,30 +97,25 @@ export function LoginForm({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 justify-center rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          >
-            <GoogleIcon />
-            Google
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 justify-center rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          >
-            <BriefcaseBusiness className="size-4" />
-            Institucional
-          </Button>
-        </div>
+        {error ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        <SocialAuthButtons
+          activeProvider={activeSocialProvider}
+          onStart={setActiveSocialProvider}
+        />
 
         <FieldSeparator>Ou entre com email</FieldSeparator>
 
         <Field className="gap-2">
-          <FieldLabel htmlFor="email" className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-            E-mail 
+          <FieldLabel
+            htmlFor="email"
+            className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"
+          >
+            E-mail
           </FieldLabel>
           <Input
             id="email"
@@ -83,12 +123,19 @@ export function LoginForm({
             placeholder="name@company.com"
             required
             className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
+            value={formData.email}
+            onChange={(event) =>
+              setFormData((current) => ({ ...current, email: event.target.value }))
+            }
           />
         </Field>
 
         <Field className="gap-2">
           <div className="flex items-center justify-between gap-4">
-            <FieldLabel htmlFor="password" className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+            <FieldLabel
+              htmlFor="password"
+              className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"
+            >
               Senha
             </FieldLabel>
             <Link
@@ -101,23 +148,31 @@ export function LoginForm({
           <Input
             id="password"
             type="password"
-            placeholder="Enter your password"
+            placeholder="Digite sua senha"
             required
             className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
+            value={formData.password}
+            onChange={(event) =>
+              setFormData((current) => ({
+                ...current,
+                password: event.target.value,
+              }))
+            }
           />
         </Field>
 
         <Field>
           <Button
             type="submit"
+            disabled={isSubmitting || activeSocialProvider !== null}
             className="h-12 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
           >
-            Entrar
+            {isSubmitting ? "Entrando..." : "Entrar"}
           </Button>
         </Field>
 
         <FieldDescription className="text-center text-sm text-slate-500">
-          Não tem uma conta?{" "}
+          Nao tem uma conta?{" "}
           <Link
             href="/register"
             className="font-semibold text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline"
@@ -127,7 +182,8 @@ export function LoginForm({
         </FieldDescription>
 
         <div className="border-t border-slate-100 pt-5 text-xs leading-6 text-slate-400">
-          Ao continuar, você concorda com nossos Termos, Política de Privacidade e Diretrizes da Plataforma.
+          Ao continuar, voce concorda com nossos Termos, Politica de
+          Privacidade e Diretrizes da Plataforma.
         </div>
       </FieldGroup>
     </form>

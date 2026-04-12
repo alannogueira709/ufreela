@@ -30,17 +30,36 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 
+def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None = None):
+    client_id = os.environ.get(client_id_env)
+    secret = os.environ.get(secret_env)
+
+    if not client_id or not secret:
+        return None
+
+    app = {
+        "client_id": client_id,
+        "secret": secret,
+    }
+
+    if key_env:
+        app["key"] = os.environ.get(key_env, "")
+
+    return app
+
+
 # Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
+    'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.github',
-    'allauth.socialaccount.providers.linkedin',
+    'allauth.socialaccount.providers.linkedin_oauth2',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -66,6 +85,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -117,6 +137,7 @@ DATABASES = {
 }
 
 SITE_ID = 1
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
@@ -127,9 +148,40 @@ ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_EMAIL_VERIFICATION = "none"
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_QUERY_EMAIL = True
 
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = '/api/auth/social/success/'
 LOGOUT_REDIRECT_URL = '/login/'
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        **(
+            {"APP": build_social_app("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET")}
+            if build_social_app("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET")
+            else {}
+        ),
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"prompt": "select_account"},
+    },
+    "github": {
+        **(
+            {"APP": build_social_app("GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET")}
+            if build_social_app("GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET")
+            else {}
+        ),
+        "SCOPE": ["user:email"],
+    },
+    "linkedin_oauth2": {
+        **(
+            {"APP": build_social_app("LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET")}
+            if build_social_app("LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET")
+            else {}
+        ),
+        "SCOPE": ["r_liteprofile", "r_emailaddress"],
+    },
+}
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { LoginInput, RegisterInput } from "@/lib/validations/auth";
 import type { UserRole } from "@/types/nav";
@@ -24,36 +25,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  // Function to load the currently authenticated user
-  const fetchUser = async () => {
-    try {
-      // Create a /me/ endpoint or similar in the backend to return user data based on cookie token
-      const response = await api.get("/auth/me/");
-      setUser(response.data);
-    } catch (error) {
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data: user = null, isLoading, refetch } = useQuery<User | null>({
+    queryKey: ["auth", "user"],
+    queryFn: async () => {
+      try {
+        const response = await api.get("/auth/me/");
+        return response.data;
+      } catch (error) {
+        return null; // Ensure we return null if failed
+      }
+    },
+    // Prevent frequent unneeded retries for unauthorized state
+    retry: false, 
+  });
 
   useEffect(() => {
-    fetchUser();
-
-    // Listen for unauthorized events to clear user
-    const handleUnauthorized = () => setUser(null);
+    // Listen for unauthorized events to clear user cache
+    const handleUnauthorized = () => {
+      queryClient.setQueryData(["auth", "user"], null);
+    };
     window.addEventListener("unauthorized", handleUnauthorized);
     
     return () => window.removeEventListener("unauthorized", handleUnauthorized);
-  }, []);
+  }, [queryClient]);
 
   const login = async (data: LoginInput) => {
     // Django will return the tokens via HttpOnly cookies
     await api.post("/auth/login/", data);
-    await fetchUser();
+    // Refresh user data from server to populate context
+    await refetch();
   };
 
   const register = async (data: RegisterInput) => {
@@ -63,7 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await api.post("/auth/logout/");
-    setUser(null);
+    // Clear user locally without needing an extra fetch
+    queryClient.setQueryData(["auth", "user"], null);
   };
 
   return (
