@@ -39,7 +39,7 @@ export default function Navbar({ role }: NavbarProps) {
   const { scrollY } = useScroll();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const links = navLinks[role];
+  const links = navLinks[role] ?? navLinks.guest;
   const isGuest = role === "guest";
 
   useMotionValueEvent(scrollY, "change", (latest) => {

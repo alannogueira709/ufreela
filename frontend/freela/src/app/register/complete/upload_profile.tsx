@@ -38,6 +38,7 @@ type UploadProfileProps = {
   onPrev: () => void;
   onSubmit: () => void;
   isSubmitting: boolean;
+  error?: string;
 };
 
 export default function UploadProfile({
@@ -46,6 +47,7 @@ export default function UploadProfile({
   updateData,
   onSubmit,
   isSubmitting,
+  error,
 }: UploadProfileProps) {
   return (
     <motion.div
@@ -63,6 +65,15 @@ export default function UploadProfile({
       <motion.p variants={itemVariants} className="text-slate-500">
         Adicione uma foto e uma bio.
       </motion.p>
+
+      {error ? (
+        <motion.div
+          variants={itemVariants}
+          className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700"
+        >
+          {error}
+        </motion.div>
+      ) : null}
 
       <motion.div
         variants={itemVariants}

@@ -28,6 +28,8 @@ function isStrongPassword(password: string) {
   );
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4">
@@ -76,18 +78,19 @@ export function SignupForm({
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("As senhas nao coincidem. Por favor, tente novamente.");
+      setError("As senhas não coincidem. Por favor, tente novamente.");
       return;
     }
 
     try {
       setIsSubmitting(true);
-
-      const response = await fetch("http://localhost:8000/api/auth/register/", {
+  
+      const registerResponse = await fetch(`${API_BASE_URL}/auth/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
@@ -95,22 +98,50 @@ export function SignupForm({
         }),
       });
 
-      const contentType = response.headers.get("content-type") ?? "";
+      const contentType = registerResponse.headers.get("content-type") ?? "";
       const data = contentType.includes("application/json")
-        ? await response.json()
+        ? await registerResponse.json()
         : null;
 
-      if (!response.ok) {
+      if (!registerResponse.ok) {
         const backendError =
+          data?.error ??
           data?.detail ??
           data?.email?.[0] ??
           data?.password?.[0] ??
           data?.confirm_password?.[0] ??
-          "Nao foi possivel criar a conta. Por favor, tente novamente.";
+          "Não foi possível criar a conta. Por favor, tente novamente.";
 
         setError(backendError);
         return;
       }
+
+      const loginResponse = await fetch(`${API_BASE_URL}/auth/login/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const loginContentType = loginResponse.headers.get("content-type") ?? "";
+      const loginData = loginContentType.includes("application/json")
+        ? await loginResponse.json()
+        : null;
+
+      if (!loginResponse.ok) {
+        setError(
+          loginData?.detail ??
+            loginData?.error ??
+            "Conta criada, mas nao foi possivel autenticar automaticamente."
+        );
+        return;
+      }
+
       setFormData({
         email: "",
         password: "",

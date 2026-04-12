@@ -10,7 +10,7 @@ export const navLinks: Record<UserRole, NavItem[]> = {
     { label: "Postar Vaga", href: "/jobs/post" },
     { label: "Mensagens", href: "/messages" },
   ],
-  candidate:[
+  freelancer:[
     { label: "Minhas Propostas", href: "/proposals" },
     { label: "Buscar Vagas", href: "/jobs" },
     { label: "Mensagens", href: "/messages" },

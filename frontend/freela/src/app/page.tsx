@@ -1,9 +1,12 @@
+"use client";
+
 import FeaturedJobsSection from "@/components/home/FeaturedJobsSection";
 import InteractiveMarquee from "@/components/home/InteractiveMarquee";
 import QuickActionMenu from "@/components/home/QuickActionMenu";
 import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
 import type { UserRole } from "@/types/nav";
+import { useAuth } from "@/contexts/AuthContext";
 
 function GuestHome() {
   return (
@@ -28,11 +31,11 @@ function GuestHome() {
   );
 }
 
-function CandidateHome() {
+function FreelancerHome() {
   return (
     <section className="container mx-auto space-y-4 px-8 py-10">
       <h1 className="font-heading text-4xl font-bold tracking-tight text-slate-950">
-        Painel do Candidato
+        Painel do Freelancer
       </h1>
       <p className="max-w-2xl text-sm font-medium text-slate-500 md:text-base">
         Acompanhe propostas enviadas, encontre novas vagas e mantenha suas
@@ -72,13 +75,20 @@ function AdminHome() {
 
 const roleContent: Record<UserRole, React.ReactNode> = {
   guest: <GuestHome />,
-  candidate: <CandidateHome />,
+  freelancer: <FreelancerHome />,
   publisher: <PublisherHome />,
   admin: <AdminHome />,
 };
 
 export default function Home() {
-  const activeRole: UserRole = "guest";
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center bg-slate-50">Carregando...</div>;
+  }
+
+  const activeRole: UserRole =
+    user?.role && user.role in roleContent ? user.role : "guest";
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <Navbar role={activeRole} />
