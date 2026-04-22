@@ -7,6 +7,7 @@ import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
 import type { UserRole } from "@/types/nav";
 import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect } from "react";
 
 function GuestHome() {
   return (
@@ -82,13 +83,25 @@ const roleContent: Record<UserRole, React.ReactNode> = {
 
 export default function Home() {
   const { user, isLoading } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
-  if (isLoading) {
-    return <div className="flex h-screen items-center justify-center bg-slate-50">Carregando...</div>;
+  if (!mounted || isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+        <Navbar role="guest" />
+        
+        <Footer />
+      </div>
+    );
   }
 
   const activeRole: UserRole =
     user?.role && user.role in roleContent ? user.role : "guest";
+    
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <Navbar role={activeRole} />

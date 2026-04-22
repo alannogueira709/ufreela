@@ -1,7 +1,7 @@
-"use client";
-
+﻿"use client";
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   AnimatePresence,
   motion,
@@ -10,6 +10,7 @@ import {
 } from "motion/react";
 import { Bell, ChevronDown, Menu, MessageSquare, User, X } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 import {
   DropdownMenu,
@@ -18,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { navLinks } from "@/lib/nav-links";
+import { getNavLinks } from "@/lib/nav-links";
 import type { UserRole } from "@/types/nav";
 
 const navLinkClassName =
@@ -36,11 +37,32 @@ type NavbarProps = {
 
 export default function Navbar({ role }: NavbarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { scrollY } = useScroll();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const links = navLinks[role] ?? navLinks.guest;
   const isGuest = role === "guest";
+  const { user, logout } = useAuth();
+  const links = getNavLinks(role, user?.id);
+
+  const profileHref =
+    user?.role === "freelancer"
+      ? `/profile/freelancer/${user.id}`
+      : user?.role === "publisher"
+        ? `/profile/publisher/${user.id}`
+        : "/";
+
+  async function handleLogout() {
+    await logout();
+    setIsMobileMenuOpen(false);
+    router.push("/login");
+    router.refresh();
+  }
+
+  function handleViewProfile() {
+    setIsMobileMenuOpen(false);
+    router.push(profileHref);
+  }
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     setIsScrolled(latest > 20);
@@ -64,9 +86,14 @@ export default function Navbar({ role }: NavbarProps) {
           <div className="flex items-center gap-10">
             <Link
               href="/"
-              className="font-heading text-2xl font-bold tracking-tighter text-slate-950"
+              className="group flex items-center gap-2.5 font-heading text-2xl font-bold tracking-tighter text-slate-950 transition-all duration-300"
             >
-              uFreela<span className="text-blue-600">.</span>
+              <div className="flex items-center justify-center rounded-xl border border-white/40 bg-white/30 p-1.5 shadow-sm backdrop-blur-md transition-all duration-300 group-hover:bg-white/50 group-hover:shadow-md">
+                <Image src="/ufreela.svg" alt="uFreela" width={28} height={28} className="drop-shadow-sm" />
+              </div>
+              <span className="pt-0.5">
+                uFreela<span className="text-blue-600">.</span>
+              </span>
             </Link>
 
             <div className="hidden items-center gap-6 md:flex">
@@ -148,10 +175,12 @@ export default function Navbar({ role }: NavbarProps) {
                     align="end"
                     className="rounded-2xl border border-white/30 bg-white/45 p-2 shadow-[0_20px_50px_-28px_rgba(15,23,42,0.45)] backdrop-blur-2xl"
                   >
-                    <DropdownMenuItem>Ver Perfil</DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleViewProfile}>
+                      Ver Perfil
+                    </DropdownMenuItem>
                     <DropdownMenuItem>Ajustes</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>Sair</DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>Sair</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -232,10 +261,12 @@ export default function Navbar({ role }: NavbarProps) {
                           align="end"
                           className="rounded-2xl border border-white/30 bg-white/45 p-2 shadow-[0_20px_50px_-28px_rgba(15,23,42,0.45)] backdrop-blur-2xl"
                         >
-                          <DropdownMenuItem>Ver Perfil</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleViewProfile}>
+                            Ver Perfil
+                          </DropdownMenuItem>
                           <DropdownMenuItem>Ajustes</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>Sair</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleLogout}>Sair</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </>
@@ -249,3 +280,4 @@ export default function Navbar({ role }: NavbarProps) {
     </motion.nav>
   );
 }
+

@@ -18,6 +18,17 @@ import { QueryProvider } from "@/components/providers/query-provider";
 export const metadata: Metadata = {
   title: "uFreela | A Plataforma de Oportunidades da Comunidade",
   description: "Conectamos estudantes talentosos a empresas com projetos inovadores, fortalecendo o ecossistema de tecnologia e inovação.",
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icon0.svg', type: 'image/svg+xml' },
+      { url: '/ufreela.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/apple-icon.png' },
+    ],
+  },
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({

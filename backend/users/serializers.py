@@ -1,6 +1,8 @@
-from rest_framework import serializers
 from django.contrib.auth import authenticate
+from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from users.application.dto.register_user import RegisterUserCommand
+
 from .services import OnboardingDTO, RegisterDTO
 from .validators import digits_only, is_valid_cnpj, is_valid_cpf
 
@@ -10,7 +12,11 @@ class RegisterSerializer(serializers.Serializer):
     password         = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
 
+    def to_command(self) -> RegisterUserCommand:
+        return RegisterUserCommand(**self.validated_data)
+
     def to_dto(self) -> RegisterDTO:
+        # Compatibilidade com fluxo legado que usa AuthService.register.
         return RegisterDTO(**self.validated_data)
 
 
@@ -89,3 +95,34 @@ class OnboardingSerializer(serializers.Serializer):
 
     def to_dto(self) -> OnboardingDTO:
         return OnboardingDTO(**self.validated_data)
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        from jobs.models import Category
+        model = Category
+        fields = ["category_id", "category_name", "category_slug"]
+
+
+class SkillSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+
+    class Meta:
+        from jobs.models import Skill
+        model = Skill
+        fields = ["skill_id", "skill_name", "skill_slug", "category"]
+
+
+class FreelancerSkillSaveItemSerializer(serializers.Serializer):
+    skill_id = serializers.IntegerField()
+    skill_level = serializers.ChoiceField(
+        choices=[
+            ("beginner", "Iniciante"),
+            ("intermediate", "Intermediário"),
+            ("advanced", "Avançado"),
+        ]
+    )
+
+
+class FreelancerSkillUpdateSerializer(serializers.Serializer):
+    skills = FreelancerSkillSaveItemSerializer(many=True)

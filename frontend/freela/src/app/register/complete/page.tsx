@@ -5,54 +5,24 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 import ChooseRole, { type Role } from "./choose_role";
 import DataForm from "./data_form";
 import UploadProfile from "./upload_profile";
 import type { OnboardingFormData } from "./types";
+import {
+  completeRegistration,
+  getCurrentUser,
+} from "@/lib/auth-service";
+import { getApiErrorMessage } from "@/lib/api-errors";
 import { cn } from "@/lib/utils";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
 const steps = [
   { id: 1, label: "Cargo" },
   { id: 2, label: "Dados Pessoais" },
   { id: 3, label: "Seu Perfil" },
 ];
-
-function getApiErrorMessage(data: unknown) {
-  if (!data || typeof data !== "object") {
-    return null;
-  }
-
-  const errorData = data as Record<string, unknown>;
-  const preferredKeys = ["error", "detail", "cpf", "cnpj", "first_name", "company_name"];
-
-  for (const key of preferredKeys) {
-    const value = errorData[key];
-
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
-
-    if (Array.isArray(value) && typeof value[0] === "string") {
-      return value[0];
-    }
-  }
-
-  for (const value of Object.values(errorData)) {
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
-
-    if (Array.isArray(value) && typeof value[0] === "string") {
-      return value[0];
-    }
-  }
-
-  return null;
-}
 
 const stepVariants = {
   enter: (direction: number) => ({
@@ -71,6 +41,7 @@ const stepVariants = {
 
 export default function RegisterCompletePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Role>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [direction, setDirection] = useState(0);
@@ -122,44 +93,40 @@ export default function RegisterCompletePage() {
         throw new Error("Selecione um cargo antes de finalizar o cadastro.");
       }
 
-      const payload = new FormData();
-      payload.append("role_id", selectedRole);
-      payload.append("first_name", formData.firstName);
-      payload.append("last_name", formData.lastName);
-      payload.append("company_name", formData.companyName);
-      payload.append("cnpj", formData.cnpj);
-      payload.append("cpf", formData.cpf);
-      payload.append("primary_area", formData.primaryArea);
-      payload.append("profile_title", formData.profileTitle);
-      payload.append("profile_description", formData.profileDescription);
-
-      if (formData.profileImage) {
-        payload.append("profile_image", formData.profileImage);
-      }
-
-      const response = await fetch(`${API_BASE_URL}/auth/register/complete/`, {
-        method: "POST",
-        credentials: "include",
-        body: payload,
+      await completeRegistration({
+        role_id: selectedRole,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        company_name: formData.companyName,
+        cnpj: formData.cnpj,
+        cpf: formData.cpf,
+        primary_area: formData.primaryArea,
+        profile_title: formData.profileTitle,
+        profile_description: formData.profileDescription,
+        ...(formData.profileImage
+          ? { profile_image: formData.profileImage }
+          : {}),
       });
 
-      const contentType = response.headers.get("content-type") ?? "";
-      const data = contentType.includes("application/json")
-        ? await response.json()
-        : null;
+      const currentUser = await getCurrentUser();
+      queryClient.setQueryData(["auth", "user"], currentUser);
 
-      if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(data) ?? "Nao foi possivel finalizar o cadastro."
-        );
+      if (selectedRole === "freelancer") {
+        router.push("/welcome/freelancer");
+      } else {
+        router.push(`/profile/publisher/${currentUser.id}`);
       }
-
-      router.push("/profile");
     } catch (error) {
       setSubmitError(
-        error instanceof Error
-          ? error.message
-          : "Nao foi possivel finalizar o cadastro."
+        getApiErrorMessage(error, "Nao foi possivel finalizar o cadastro.", [
+          "error",
+          "detail",
+          "cpf",
+          "cnpj",
+          "first_name",
+          "company_name",
+          "message",
+        ])
       );
     } finally {
       setIsSubmitting(false);

@@ -3,14 +3,11 @@ from dataclasses import dataclass
 from typing import Optional
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 
-from .repositories import (
-    FreelancerRepository,
-    PublisherRepository,
-    RoleRepository,
-    UserRepository,
-)
+from .repositories import (FreelancerRepository, PublisherRepository,
+                           RoleRepository, UserRepository)
 
 User = get_user_model()
 
@@ -78,13 +75,23 @@ class OnboardingService:
         OnboardingService._validate_for_role(role.role_name, dto)
 
         # Atualiza campos comuns no User
-        user = UserRepository.update_profile(
-            user,
-            role=role,
-            name=dto.first_name,
-            last_name=dto.last_name,
-            **({"profile_img": dto.profile_image} if dto.profile_image else {}),
-        )
+        try:
+            user = UserRepository.update_profile(
+                user,
+                role=role,
+                name=dto.first_name,
+                last_name=dto.last_name,
+                **({"profile_img": dto.profile_image} if dto.profile_image else {}),
+            )
+        except DjangoValidationError as e:
+            if hasattr(e, "message_dict"):
+                first_error = next(iter(e.message_dict.values()))
+                message = first_error[0] if first_error else "Dados de perfil invalidos."
+            elif hasattr(e, "messages") and e.messages:
+                message = e.messages[0]
+            else:
+                message = "Dados de perfil invalidos."
+            raise ValueError(message) from e
 
         # Delega criação do perfil especializado
         if role.role_name == "freelancer":
