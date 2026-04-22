@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+
 from .models import Freelancer, Publisher, Role
 
 User = get_user_model()
@@ -21,6 +22,7 @@ class UserRepository:
     def update_profile(user: User, **fields) -> User:
         for attr, value in fields.items():
             setattr(user, attr, value)
+        user.full_clean()
         user.save(update_fields=list(fields.keys()))
         return user
 

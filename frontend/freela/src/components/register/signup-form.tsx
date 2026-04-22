@@ -14,14 +14,13 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import { getApiErrorMessage } from "@/lib/api-errors";
 import { type SocialProvider } from "@/lib/social-auth";
 import { cn } from "@/lib/utils";
 
 const PASSWORD_HINT =
   "Use no minimo 8 caracteres, com 1 letra maiuscula, 1 minuscula e 1 caractere especial (!, @, #, $, %, ^, &, *).";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
 function isStrongPassword(password: string) {
   return (
@@ -37,6 +36,7 @@ export function SignupForm({
   ...props
 }: React.ComponentProps<"form">) {
   const router = useRouter();
+  const { login, register } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -63,68 +63,25 @@ export function SignupForm({
 
     try {
       setIsSubmitting(true);
-
-      const registerResponse = await fetch(`${API_BASE_URL}/auth/register/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          confirm_password: formData.confirmPassword,
-        }),
+      await register({
+        email: formData.email,
+        password: formData.password,
+        confirm_password: formData.confirmPassword,
       });
-
-      const contentType = registerResponse.headers.get("content-type") ?? "";
-      const data = contentType.includes("application/json")
-        ? await registerResponse.json()
-        : null;
-
-      if (!registerResponse.ok) {
-        setError(
-          data?.error ??
-            data?.detail ??
-            data?.email?.[0] ??
-            data?.password?.[0] ??
-            data?.confirm_password?.[0] ??
-            "Nao foi possivel criar a conta. Por favor, tente novamente."
-        );
-        return;
-      }
-
-      const loginResponse = await fetch(`${API_BASE_URL}/auth/login/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      await login({
+        email: formData.email,
+        password: formData.password,
       });
-
-      const loginContentType = loginResponse.headers.get("content-type") ?? "";
-      const loginData = loginContentType.includes("application/json")
-        ? await loginResponse.json()
-        : null;
-
-      if (!loginResponse.ok) {
-        setError(
-          loginData?.detail ??
-            loginData?.error ??
-            "Conta criada, mas nao foi possivel autenticar automaticamente."
-        );
-        return;
-      }
 
       router.push("/register/complete");
       router.refresh();
-    } catch {
+    } catch (error) {
       setError(
-        "Erro ao conectar com o servidor. Verifique se o backend esta rodando."
+        getApiErrorMessage(
+          error,
+          "Erro ao conectar com o servidor. Verifique se o backend esta rodando.",
+          ["error", "detail", "email", "password", "confirm_password", "message"]
+        )
       );
     } finally {
       setIsSubmitting(false);

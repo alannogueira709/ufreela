@@ -4,4 +4,25 @@ venv/
 .mypy_cache/
 __pycache__/
 
-./backend/.env
+backend/.env
+**/.env
+
+backend/seed_skills.py
+backend/seed_users.py
+backend/test_post.py
+
+# Ignorar arquivos de mídia (imagens de perfil, uploads dos usuários)
+backend/media/
+**/*.jpeg
+**/*.jpg
+**/*.png
+**/*.gif
+**/*.webp
+**/*.svg
+
+
+bruno_opportunities_mock.json
+
+gerar_mock.py
+
+report.html

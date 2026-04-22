@@ -14,7 +14,7 @@ export default function Register() {
     <main className="min-h-svh bg-slate-100 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mx-auto flex min-h-[calc(100svh-2rem)] max-w-7xl items-center">
         <div className="grid w-full overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45)] md:grid-cols-[1.02fr_0.98fr]">
-          <section className="relative hidden min-h-[640px] overflow-hidden bg-slate-950 md:flex md:flex-col">
+          <section className="relative hidden min-h-160 overflow-hidden bg-slate-950 md:flex md:flex-col">
             <Image
               src="/images/placeholder.png"
               alt="Profissional organizando oportunidades em um painel"
@@ -26,7 +26,7 @@ export default function Register() {
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.26)_0%,rgba(2,6,23,0.58)_34%,rgba(2,6,23,0.92)_100%)]" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.28),transparent_34%)]" />
 
-            <div className="relative flex h-full min-h-[640px] flex-col justify-between p-8 lg:min-h-[720px] lg:p-10">
+            <div className="relative flex h-full min-h-160 flex-col justify-between p-8 lg:min-h-180 lg:p-10">
               <div>
                 <div className="inline-flex items-center rounded-md bg-white px-4 py-2 shadow-sm">
                   <span className="font-heading text-2xl font-bold tracking-tight text-slate-950">
@@ -72,7 +72,7 @@ export default function Register() {
             </div>
           </section>
 
-          <section className="flex items-center bg-white px-5 py-8 sm:px-8 md:min-h-[640px] lg:px-10 lg:py-10">
+          <section className="flex items-center bg-white px-5 py-8 sm:px-8 md:min-h-160 lg:px-10 lg:py-10">
             <div className="mx-auto flex w-full max-w-md flex-col">
               <Link
                 href="/"

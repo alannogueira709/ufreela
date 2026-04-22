@@ -15,10 +15,9 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { type SocialProvider } from "@/lib/social-auth";
+import { getApiErrorMessage } from "@/lib/api-errors";
 import { cn } from "@/lib/utils";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function LoginForm({
   className,
@@ -26,6 +25,7 @@ export function LoginForm({
 }: React.ComponentProps<"form">) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -45,35 +45,16 @@ export function LoginForm({
 
     try {
       setIsSubmitting(true);
-
-      const response = await fetch(`${API_BASE_URL}/auth/login/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(formData),
-      });
-
-      const contentType = response.headers.get("content-type") ?? "";
-      const data = contentType.includes("application/json")
-        ? await response.json()
-        : null;
-
-      if (!response.ok) {
-        setError(
-          data?.detail ??
-            data?.error ??
-            "Nao foi possivel entrar. Verifique suas credenciais."
-        );
-        return;
-      }
+      await login(formData);
 
       router.push("/");
       router.refresh();
-    } catch {
+    } catch (error) {
       setError(
-        "Erro ao conectar com o servidor. Verifique se o backend esta rodando."
+        getApiErrorMessage(
+          error,
+          "Erro ao conectar com o servidor. Verifique se o backend esta rodando."
+        )
       );
     } finally {
       setIsSubmitting(false);
