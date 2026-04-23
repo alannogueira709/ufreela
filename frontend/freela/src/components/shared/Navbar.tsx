@@ -20,16 +20,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getNavLinks } from "@/lib/nav-links";
+import { getGravatarUrl } from "@/lib/gravatar"; // 👈 Importe a função
 import type { UserRole } from "@/types/nav";
 
-const navLinkClassName =
-  "border-b-2 border-transparent pb-1 text-sm font-medium tracking-tight text-slate-500 transition-all duration-300 ease-in-out hover:border-blue-600 hover:text-blue-600";
+const navLinkClassName = "border-b-2 border-transparent pb-1 text-sm font-medium tracking-tight text-slate-500 transition-all duration-300 ease-in-out hover:border-blue-600 hover:text-blue-600";
 
-const activeLinkClassName =
-  "border-b-2 border-blue-600 pb-1 text-sm font-semibold tracking-tight text-blue-600 transition-all duration-300 ease-in-out";
+const activeLinkClassName = "border-b-2 border-blue-600 pb-1 text-sm font-semibold tracking-tight text-blue-600 transition-all duration-300 ease-in-out";
 
-const mobileNavLinkClassName =
-  "block rounded-2xl border border-white/30 bg-white/45 px-4 py-3 text-sm font-medium tracking-tight text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-blue-600";
+const mobileNavLinkClassName = "block rounded-2xl border border-white/30 bg-white/45 px-4 py-3 text-sm font-medium tracking-tight text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-blue-600";
 
 type NavbarProps = {
   role: UserRole;
@@ -51,6 +49,11 @@ export default function Navbar({ role }: NavbarProps) {
       : user?.role === "publisher"
         ? `/profile/publisher/${user.id}`
         : "/";
+
+  // 👇 Gera a URL do Gravatar se o usuário tiver email
+  const avatarUrl = user?.email 
+    ? getGravatarUrl(user.email, 64) 
+    : null;
 
   async function handleLogout() {
     await logout();
@@ -165,8 +168,19 @@ export default function Navbar({ role }: NavbarProps) {
                       whileTap={{ scale: 0.97 }}
                       className="hidden items-center gap-1 rounded-full border border-white/35 bg-white/35 p-1 pl-2 text-slate-600 shadow-sm backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/55 hover:text-slate-900 md:flex"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200/80 text-slate-600">
-                        <User size={18} />
+                      {/* 👇 SUBSTITUIÇÃO DO AVATAR AQUI */}
+                      <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-200/80 text-slate-600">
+                        {avatarUrl ? (
+                          <Image
+                            src={avatarUrl}
+                            alt="Avatar do usuário"
+                            width={32}
+                            height={32}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <User size={18} />
+                        )}
                       </div>
                       <ChevronDown size={16} className="text-slate-500" />
                     </motion.button>
@@ -247,12 +261,22 @@ export default function Navbar({ role }: NavbarProps) {
                     <>
                       <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/45 px-4 py-3 text-sm font-medium text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-slate-900">
                         <Bell size={18} />
-                        Notificacoes
+                        Notificações
                       </button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/45 px-4 py-3 text-sm font-medium text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-slate-900">
-                            <User size={18} />
+                            {avatarUrl ? (
+                              <Image
+                                src={avatarUrl}
+                                alt="Avatar"
+                                width={20}
+                                height={20}
+                                className="rounded-full"
+                              />
+                            ) : (
+                              <User size={18} />
+                            )}
                             Perfil
                             <ChevronDown size={16} className="text-slate-500" />
                           </button>
@@ -280,4 +304,3 @@ export default function Navbar({ role }: NavbarProps) {
     </motion.nav>
   );
 }
-

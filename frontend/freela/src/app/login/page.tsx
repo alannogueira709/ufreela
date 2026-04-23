@@ -16,7 +16,7 @@ export default function Login() {
         <div className="grid w-full overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45)] md:grid-cols-[1.02fr_0.98fr]">
           <section className="relative hidden min-h-[640px] overflow-hidden bg-slate-950 md:flex md:flex-col">
             <Image
-              src="/images/placeholder.png"
+              src="/images/julian.jpeg"
               alt="Profissional trabalhando em um escritorio"
               fill
               sizes="(max-width: 767px) 100vw, 50vw"
