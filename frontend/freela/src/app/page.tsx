@@ -1,13 +1,15 @@
 "use client";
 
+import type React from "react";
 import FeaturedJobsSection from "@/components/home/FeaturedJobsSection";
 import InteractiveMarquee from "@/components/home/InteractiveMarquee";
 import QuickActionMenu from "@/components/home/QuickActionMenu";
 import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
+import { FreelancerHome } from "@/app/freelancerHome";
+import { PublisherHome } from "@/app/publisherHome";
 import type { UserRole } from "@/types/nav";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
 
 function GuestHome() {
   return (
@@ -32,34 +34,6 @@ function GuestHome() {
   );
 }
 
-function FreelancerHome() {
-  return (
-    <section className="container mx-auto space-y-4 px-8 py-10">
-      <h1 className="font-heading text-4xl font-bold tracking-tight text-slate-950">
-        Painel do Freelancer
-      </h1>
-      <p className="max-w-2xl text-sm font-medium text-slate-500 md:text-base">
-        Acompanhe propostas enviadas, encontre novas vagas e mantenha suas
-        conversas com recrutadores em dia.
-      </p>
-    </section>
-  );
-}
-
-function PublisherHome() {
-  return (
-    <section className="container mx-auto space-y-4 px-8 py-10">
-      <h1 className="font-heading text-4xl font-bold tracking-tight text-slate-950">
-        Painel do Publicador
-      </h1>
-      <p className="max-w-2xl text-sm font-medium text-slate-500 md:text-base">
-        Gerencie projetos, publique vagas e acompanhe candidatos interessados
-        em trabalhar com sua equipe.
-      </p>
-    </section>
-  );
-}
-
 function AdminHome() {
   return (
     <section className="container mx-auto space-y-4 px-8 py-10">
@@ -74,22 +48,10 @@ function AdminHome() {
   );
 }
 
-const roleContent: Record<UserRole, React.ReactNode> = {
-  guest: <GuestHome />,
-  freelancer: <FreelancerHome />,
-  publisher: <PublisherHome />,
-  admin: <AdminHome />,
-};
-
 export default function Home() {
   const { user, isLoading } = useAuth();
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-  
-  if (!mounted || isLoading) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
         <Navbar role="guest" />
@@ -98,6 +60,13 @@ export default function Home() {
       </div>
     );
   }
+
+  const roleContent: Record<UserRole, React.ReactNode> = {
+    guest: <GuestHome />,
+    freelancer: <FreelancerHome userEmail={user?.email} />,
+    publisher: <PublisherHome userEmail={user?.email} />,
+    admin: <AdminHome />,
+  };
 
   const activeRole: UserRole =
     user?.role && user.role in roleContent ? user.role : "guest";

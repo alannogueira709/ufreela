@@ -10,6 +10,7 @@ interface CandidateCardProps {
 
 export default function CandidateCard({ candidate }: CandidateCardProps) {
   const formattedRate = candidate.hourlyRate.toFixed(2);
+  const shouldBypassOptimizer = /^https?:\/\//.test(candidate.avatarUrl);
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-300 hover:border-slate-200 hover:shadow-lg">
@@ -21,6 +22,7 @@ export default function CandidateCard({ candidate }: CandidateCardProps) {
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           loading="eager"
+          unoptimized={shouldBypassOptimizer}
         />
 
         <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-slate-900 shadow backdrop-blur-sm">
