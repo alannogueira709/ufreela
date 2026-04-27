@@ -1,6 +1,8 @@
 "use client";
 
 import type React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import FeaturedJobsSection from "@/components/home/FeaturedJobsSection";
 import InteractiveMarquee from "@/components/home/InteractiveMarquee";
 import QuickActionMenu from "@/components/home/QuickActionMenu";
@@ -10,6 +12,15 @@ import { FreelancerHome } from "@/app/freelancerHome";
 import { PublisherHome } from "@/app/publisherHome";
 import type { UserRole } from "@/types/nav";
 import { useAuth } from "@/contexts/AuthContext";
+import { getApiErrorMessage } from "@/lib/api-errors";
+import {
+  EMPTY_FREELANCER_HOME_DATA,
+  getFreelancerHomeData,
+} from "@/lib/freelancer-home-service";
+import {
+  EMPTY_PUBLISHER_HOME_DATA,
+  getPublisherHomeData,
+} from "@/lib/publisher-home-service";
 
 function GuestHome() {
   return (
@@ -49,7 +60,40 @@ function AdminHome() {
 }
 
 export default function Home() {
+  const router = useRouter();
   const { user, isLoading } = useAuth();
+  const {
+    data: freelancerHomeData,
+    isLoading: isLoadingFreelancerHome,
+    error: freelancerHomeError,
+  } = useQuery({
+    queryKey: ["freelancer-home", user?.id],
+    queryFn: async () => {
+      if (!user?.id) {
+        throw new Error("Freelancer nao autenticado.");
+      }
+
+      return getFreelancerHomeData(user.id);
+    },
+    enabled: user?.role === "freelancer" && Boolean(user?.id),
+    retry: false,
+  });
+  const {
+    data: publisherHomeData,
+    isLoading: isLoadingPublisherHome,
+    error: publisherHomeError,
+  } = useQuery({
+    queryKey: ["publisher-home", user?.id],
+    queryFn: async () => {
+      if (!user?.id) {
+        throw new Error("Publisher nao autenticado.");
+      }
+
+      return getPublisherHomeData(user.id);
+    },
+    enabled: user?.role === "publisher" && Boolean(user?.id),
+    retry: false,
+  });
 
   if (isLoading) {
     return (
@@ -63,8 +107,66 @@ export default function Home() {
 
   const roleContent: Record<UserRole, React.ReactNode> = {
     guest: <GuestHome />,
-    freelancer: <FreelancerHome userEmail={user?.email} />,
-    publisher: <PublisherHome userEmail={user?.email} />,
+    freelancer: (
+      <FreelancerHome
+        userEmail={user?.email}
+        onViewProposals={() =>
+          user?.id && router.push(`/profile/freelancer/${user.id}/proposals`)
+        }
+        onViewAllProposals={() =>
+          user?.id && router.push(`/profile/freelancer/${user.id}/proposals`)
+        }
+        onViewSavedJobs={() => router.push("/jobs")}
+        onRetakeAssessments={() => router.push("/welcome/freelancer")}
+        onUpdatePortfolio={() =>
+          user?.id && router.push(`/profile/freelancer/${user.id}/settings`)
+        }
+        data={
+          freelancerHomeData ??
+          (isLoadingFreelancerHome || freelancerHomeError
+            ? EMPTY_FREELANCER_HOME_DATA
+            : undefined)
+        }
+        isLoading={isLoadingFreelancerHome}
+        error={
+          freelancerHomeError
+            ? getApiErrorMessage(
+                freelancerHomeError,
+                "Nao foi possivel carregar os dados do dashboard do freelancer.",
+              )
+            : null
+        }
+      />
+    ),
+    publisher: (
+      <PublisherHome
+        userEmail={user?.email}
+        onCreateProject={() => router.push("/jobs/post")}
+        onPostJob={() => router.push("/jobs/post")}
+        onViewCandidates={() => router.push("/hire")}
+        onViewAllProposals={() =>
+          user?.id && router.push(`/profile/publisher/${user.id}/opportunities`)
+        }
+        onOpenAnalytics={() =>
+          user?.id && router.push(`/profile/publisher/${user.id}/opportunities`)
+        }
+        data={
+          publisherHomeData ??
+          (isLoadingPublisherHome || publisherHomeError
+            ? EMPTY_PUBLISHER_HOME_DATA
+            : undefined)
+        }
+        isLoading={isLoadingPublisherHome}
+        error={
+          publisherHomeError
+            ? getApiErrorMessage(
+                publisherHomeError,
+                "Nao foi possivel carregar os dados do dashboard do publisher.",
+              )
+            : null
+        }
+      />
+    ),
     admin: <AdminHome />,
   };
 

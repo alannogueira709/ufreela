@@ -2,8 +2,11 @@ from django.urls import path
 
 from .views import (
     CategoryListView,
+    FreelancerProposalListView,
     OpportunityDetailView,
     OpportunityListCreateView,
+    OpportunityProposalCreateView,
+    PublisherProposalListView,
     SkillListView,
 )
 
@@ -15,5 +18,20 @@ urlpatterns = [
         "opportunities/<int:opportunity_id>/",
         OpportunityDetailView.as_view(),
         name="opportunity_detail",
+    ),
+    path(
+        "opportunities/<int:opportunity_id>/proposals/",
+        OpportunityProposalCreateView.as_view(),
+        name="opportunity_proposals",
+    ),
+    path(
+        "freelancers/me/proposals/",
+        FreelancerProposalListView.as_view(),
+        name="freelancer_proposals",
+    ),
+    path(
+        "publishers/me/proposals/",
+        PublisherProposalListView.as_view(),
+        name="publisher_proposals",
     ),
 ]

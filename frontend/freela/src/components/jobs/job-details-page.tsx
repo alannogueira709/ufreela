@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -19,8 +20,11 @@ import Loading from "@/components/shared/Loading";
 import Footer from "@/components/shared/Footer";
 import Navbar from "@/components/shared/Navbar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { getOpportunityById, getOpportunities } from "@/lib/job-service";
+import { createProposal } from "@/lib/proposal-service";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserRole } from "@/types/nav";
@@ -106,6 +110,11 @@ export function JobDetailsPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [job, setJob] = useState<Opportunity | null>(null);
   const [relatedJobs, setRelatedJobs] = useState<Opportunity[]>([]);
+  const [proposalValue, setProposalValue] = useState("");
+  const [coverLetter, setCoverLetter] = useState("");
+  const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
+  const [proposalError, setProposalError] = useState("");
+  const [proposalSuccess, setProposalSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -142,6 +151,7 @@ export function JobDetailsPage() {
   }, [opportunityId]);
 
   const activeRole = mapRole(user?.role);
+  const canApply = user?.role === "freelancer" && job?.status === "open";
   const responsibilities = useMemo(
     () => (job ? buildResponsibilities(job) : []),
     [job],
@@ -150,6 +160,39 @@ export function JobDetailsPage() {
     () => buildHeroPalette(job?.title ?? ""),
     [job?.title],
   );
+
+  async function handleProposalSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!job) {
+      return;
+    }
+
+    try {
+      setIsSubmittingProposal(true);
+      setProposalError("");
+      setProposalSuccess("");
+
+      await createProposal(job.opportunity_id, {
+        proposed_value: Number(proposalValue),
+        cover_letter: coverLetter,
+      });
+
+      setProposalSuccess("Proposta enviada com sucesso.");
+      setProposalValue("");
+      setCoverLetter("");
+    } catch (submitError) {
+      setProposalError(
+        getApiErrorMessage(
+          submitError,
+          "Nao foi possivel enviar sua proposta agora.",
+          ["error", "detail", "proposed_value", "cover_letter"],
+        ),
+      );
+    } finally {
+      setIsSubmittingProposal(false);
+    }
+  }
 
   if (authLoading) {
     return (
@@ -232,7 +275,7 @@ export function JobDetailsPage() {
 
                 <div className="space-y-4">
                   <h2 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
-                    About the Project
+                    Sobre o projeto
                   </h2>
                   <div className="space-y-5 text-[15px] leading-8 text-slate-600">
                     <p>
@@ -248,7 +291,7 @@ export function JobDetailsPage() {
 
                 <div className="rounded-[30px] bg-[#eef2f7] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                   <h2 className="font-heading text-xl font-bold tracking-tight text-slate-950">
-                    Your Responsibilities
+                    Suas Responsabilidades
                   </h2>
                   <ul className="mt-5 space-y-4">
                     {responsibilities.map((item) => (
@@ -262,7 +305,7 @@ export function JobDetailsPage() {
 
                 <div className="space-y-4">
                   <h2 className="font-heading text-xl font-bold tracking-tight text-slate-950">
-                    Required Skills
+                    Skills necessárias
                   </h2>
                   <div className="flex flex-wrap gap-2">
                     {job.skills.map((skill) => (
@@ -281,28 +324,85 @@ export function JobDetailsPage() {
                 <div className="rounded-[30px] bg-white p-6 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.24)]">
                   <div className="space-y-1">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Estimated Budget
+                      Orçamento Estimado
                     </p>
                     <p className="font-heading text-4xl font-bold tracking-tight text-slate-950">
                       {formatBudget(job.budget_min, job.budget_max)}
                     </p>
                     <p className="text-sm font-medium text-blue-600">
-                      fixed-price project
+                      Projeto de preço fixo
                     </p>
                   </div>
 
-                  <div className="mt-6 space-y-3">
-                    <Button className="h-12 w-full rounded-full bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700">
-                      Apply Now
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-12 w-full rounded-full border-slate-200 bg-slate-50 text-sm font-semibold text-slate-600"
-                    >
-                      <Bookmark className="size-4" />
-                      Save Job
-                    </Button>
-                  </div>
+                  {canApply ? (
+                    <form onSubmit={handleProposalSubmit} className="mt-6 space-y-4">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="proposal_value"
+                          className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400"
+                        >
+                          Sua proposta
+                        </label>
+                        <Input
+                          id="proposal_value"
+                          required
+                          type="number"
+                          min="1"
+                          step="0.01"
+                          value={proposalValue}
+                          onChange={(event) => setProposalValue(event.target.value)}
+                          className="h-12 rounded-2xl border-slate-200 bg-slate-50"
+                          placeholder="Valor em R$"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="cover_letter"
+                          className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400"
+                        >
+                          Mensagem
+                        </label>
+                        <Textarea
+                          id="cover_letter"
+                          required
+                          value={coverLetter}
+                          onChange={(event) => setCoverLetter(event.target.value)}
+                          className="min-h-28 rounded-2xl border-slate-200 bg-slate-50"
+                          placeholder="Explique rapidamente como você entregaria este projeto."
+                        />
+                      </div>
+                      {proposalError ? (
+                        <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {proposalError}
+                        </p>
+                      ) : null}
+                      {proposalSuccess ? (
+                        <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                          {proposalSuccess}
+                        </p>
+                      ) : null}
+                      <Button
+                        type="submit"
+                        disabled={isSubmittingProposal}
+                        className="h-12 w-full rounded-full bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
+                      >
+                        {isSubmittingProposal ? "Enviando..." : "Enviar proposta"}
+                      </Button>
+                    </form>
+                  ) : (
+                    <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-500">
+                      {user
+                        ? "Somente freelancers podem enviar propostas para esta vaga."
+                        : "Entre como freelancer para enviar uma proposta."}
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="mt-3 h-12 w-full rounded-full border-slate-200 bg-slate-50 text-sm font-semibold text-slate-600"
+                  >
+                    <Bookmark className="size-4" />
+                    Salvar Vaga
+                  </Button>
 
                   <div className="mt-6 space-y-4 border-t border-slate-100 pt-6 text-sm">
                     <div className="flex items-center justify-between gap-4">
@@ -358,7 +458,7 @@ export function JobDetailsPage() {
 
                 <div className="rounded-[30px] bg-white p-6 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.24)]">
                   <h3 className="font-heading text-lg font-bold tracking-tight text-slate-950">
-                    Similar Opportunities
+                    Oportunidades Similares
                   </h3>
                   <div className="mt-4 space-y-3">
                     {relatedJobs.length > 0 ? (
@@ -378,7 +478,7 @@ export function JobDetailsPage() {
                       ))
                     ) : (
                       <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-sm leading-6 text-slate-500">
-                        Ainda nao encontramos oportunidades parecidas para esta categoria.
+                        Ainda não encontramos oportunidades parecidas para esta categoria.
                       </div>
                     )}
                   </div>

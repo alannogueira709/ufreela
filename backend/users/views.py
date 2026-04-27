@@ -317,6 +317,12 @@ class PublisherProfileView(APIView):
             )
 
         user = publisher.user_id
+        opportunities = (
+            Opportunity.objects.filter(publisher=publisher)
+            .select_related("publisher__user_id", "category")
+            .prefetch_related("skills__category")
+            .order_by("-created_at")[:6]
+        )
         return Response(
             {
                 "id": str(user.id),
@@ -326,6 +332,7 @@ class PublisherProfileView(APIView):
                 "profile_img": user.profile_img.url if user.profile_img else None,
                 "company_name": publisher.company_name,
                 "mean_eval": str(publisher.mean_eval),
+                "opportunities": OpportunityListSerializer(opportunities, many=True).data,
             }
         )
 
@@ -343,6 +350,11 @@ class FreelancerProfileView(APIView):
             )
 
         user = freelancer.user_id
+        skills = (
+            FreelancerSkill.objects.filter(freelancer=freelancer)
+            .select_related("skill__category")
+            .order_by("skill__skill_name")
+        )
         return Response(
             {
                 "id": str(user.id),
@@ -355,5 +367,21 @@ class FreelancerProfileView(APIView):
                 "hourly_rate": str(freelancer.hourly_rate) if freelancer.hourly_rate is not None else None,
                 "mean_eval": str(freelancer.mean_eval),
                 "finished_jobs": freelancer.finished_jobs,
+                "skills": [
+                    {
+                        "skill_id": item.skill.skill_id,
+                        "skill_name": item.skill.skill_name,
+                        "skill_slug": item.skill.skill_slug,
+                        "skill_level": item.skill_level,
+                        "category": {
+                            "category_id": item.skill.category.category_id,
+                            "category_name": item.skill.category.category_name,
+                            "category_slug": item.skill.category.category_slug,
+                        }
+                        if item.skill.category
+                        else None,
+                    }
+                    for item in skills
+                ],
             }
         )

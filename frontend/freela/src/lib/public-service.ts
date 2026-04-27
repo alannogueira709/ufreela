@@ -25,6 +25,17 @@ export interface FreelancerProfileResponse {
   hourly_rate: string | null;
   mean_eval: string;
   finished_jobs: number;
+  skills: {
+    skill_id: number;
+    skill_name: string;
+    skill_slug: string;
+    skill_level: string;
+    category: {
+      category_id: number;
+      category_name: string;
+      category_slug: string;
+    } | null;
+  }[];
 }
 
 export interface PublisherProfileResponse {
@@ -35,6 +46,7 @@ export interface PublisherProfileResponse {
   profile_img: string | null;
   company_name: string;
   mean_eval: string;
+  opportunities: Opportunity[];
 }
 
 function getApiOrigin() {

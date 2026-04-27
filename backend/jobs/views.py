@@ -4,13 +4,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from users.models import Publisher
+from users.models import Freelancer, Publisher
 
-from .models import Category, Opportunity, Skill
+from .models import Category, Opportunity, Proposal, Skill
 from .serializers import (
     CategorySerializer,
     OpportunityCreateSerializer,
     OpportunityListSerializer,
+    ProposalCreateSerializer,
+    ProposalSerializer,
     SkillSerializer,
 )
 
@@ -147,4 +149,129 @@ class OpportunityDetailView(APIView):
             )
 
         serializer = OpportunityListSerializer(opportunity)
+        return Response(serializer.data)
+
+
+class OpportunityProposalCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, opportunity_id: int):
+        if (
+            not getattr(request.user, "role", None)
+            or request.user.role.role_name != "freelancer"
+        ):
+            return Response(
+                {"error": "Apenas freelancers podem enviar propostas."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            freelancer = request.user.freelancer_profile
+        except Freelancer.DoesNotExist:
+            return Response(
+                {"error": "Perfil de freelancer nao encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            opportunity = Opportunity.objects.get(pk=opportunity_id)
+        except Opportunity.DoesNotExist:
+            return Response(
+                {"error": "Oportunidade nao encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if opportunity.status != Opportunity.Status.OPEN:
+            return Response(
+                {"error": "Esta oportunidade nao esta aberta para propostas."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if Proposal.objects.filter(
+            opportunity=opportunity,
+            freelancer=freelancer,
+        ).exists():
+            return Response(
+                {"error": "Voce ja enviou uma proposta para esta oportunidade."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ProposalCreateSerializer(
+            data=request.data,
+            context={"opportunity": opportunity, "freelancer": freelancer},
+        )
+        serializer.is_valid(raise_exception=True)
+        proposal = serializer.save()
+
+        response_serializer = ProposalSerializer(proposal)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class FreelancerProposalListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if (
+            not getattr(request.user, "role", None)
+            or request.user.role.role_name != "freelancer"
+        ):
+            return Response(
+                {"error": "Apenas freelancers podem acessar suas propostas."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            freelancer = request.user.freelancer_profile
+        except Freelancer.DoesNotExist:
+            return Response(
+                {"error": "Perfil de freelancer nao encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        proposals = (
+            Proposal.objects.filter(freelancer=freelancer)
+            .select_related(
+                "freelancer__user_id",
+                "opportunity__publisher__user_id",
+                "opportunity__category",
+            )
+            .prefetch_related("opportunity__skills__category")
+            .order_by("-created_at")
+        )
+        serializer = ProposalSerializer(proposals, many=True)
+        return Response(serializer.data)
+
+
+class PublisherProposalListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if (
+            not getattr(request.user, "role", None)
+            or request.user.role.role_name != "publisher"
+        ):
+            return Response(
+                {"error": "Apenas publishers podem acessar propostas recebidas."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            publisher = request.user.publisher_profile
+        except Publisher.DoesNotExist:
+            return Response(
+                {"error": "Perfil de publisher nao encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        proposals = (
+            Proposal.objects.filter(opportunity__publisher=publisher)
+            .select_related(
+                "freelancer__user_id",
+                "opportunity__publisher__user_id",
+                "opportunity__category",
+            )
+            .prefetch_related("opportunity__skills__category")
+            .order_by("-created_at")
+        )
+        serializer = ProposalSerializer(proposals, many=True)
         return Response(serializer.data)
