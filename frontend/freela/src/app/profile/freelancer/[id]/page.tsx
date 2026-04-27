@@ -289,11 +289,30 @@ export default function FreelancerProfilePage() {
               </Card>
             </motion.div>
 
-            <EmptySection
-              title="Competencias"
-              description="As competencias deste freelancer ainda nao foram cadastradas no banco de dados."
-              delay={0.13}
-            />
+            <motion.div {...fadeUp(0.13)}>
+              <Card className="rounded-3xl border-0 shadow-[0_16px_48px_-16px_rgba(15,23,42,0.07)]">
+                <CardContent className="p-8">
+                  <h2 className="text-base font-bold text-slate-900">Competencias</h2>
+                  {profile?.skills.length ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {profile.skills.map((skill) => (
+                        <span
+                          key={skill.skill_id}
+                          className="rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700"
+                        >
+                          {skill.skill_name}
+                          {skill.skill_level ? ` - ${skill.skill_level}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
+                      As competencias deste freelancer ainda nao foram cadastradas no banco de dados.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
             <EmptySection
               title="Portfolio"

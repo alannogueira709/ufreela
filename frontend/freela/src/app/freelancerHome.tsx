@@ -13,6 +13,8 @@ import {
   Sparkles,
   Star,
   Target,
+  BadgeCheck,
+  CircleDollarSign,
 } from "lucide-react";
 
 import FeaturedJobsSection from "@/components/home/FeaturedJobsSection";
@@ -29,9 +31,73 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
+// ============================================================================
+// TYPES / INTERFACES — devem ser movidos para um arquivo de tipos compartilhado
+// ============================================================================
+
+export interface FreelancerDashboardSummary {
+  monthlyRevenue: number;
+  jobSuccessRate: number; // percentage
+}
+
+export type ProposalStatus = "interviewing" | "under_review" | "hired";
+
+export interface FreelancerProposal {
+  id: string;
+  projectName: string;
+  clientName: string;
+  status: ProposalStatus;
+  statusLabel: string;
+  subtitle: string;
+  proposedValue: number;
+  accentColor: "blue" | "slate" | "emerald";
+}
+
+export interface FreelancerInsight {
+  profileViews: number;
+  rankLabel: string;
+  rankSubtitle: string;
+}
+
+export interface Skill {
+  name: string;
+  level: string;
+  levelLabel: string;
+  progress: number; // 0-100
+  color: string; // tailwind color class
+}
+
+export interface FreelancerHomeData {
+  summary: FreelancerDashboardSummary;
+  proposals: FreelancerProposal[];
+  insight: FreelancerInsight;
+  skills: Skill[];
+  profileViewGrowth: string; // e.g. "24%"
+  workspaceSynced: boolean;
+}
+
+// ============================================================================
+// PROPS
+// ============================================================================
+
 type FreelancerHomeProps = {
   userEmail?: string | null;
+  /** Dados vindos do banco de dados. Se não fornecido, a UI renderiza estados de carregamento. */
+  data?: FreelancerHomeData | null;
+  isLoading?: boolean;
+  error?: string | null;
+  /** Callbacks de ação */
+  onViewProposals?: () => void;
+  onViewSavedJobs?: () => void;
+  onViewAllProposals?: () => void;
+  onRetakeAssessments?: () => void;
+  onUpdatePortfolio?: () => void;
+  onViewMessages?: () => void;
 };
+
+// ============================================================================
+// HELPERS
+// ============================================================================
 
 function getDisplayName(userEmail?: string | null) {
   if (!userEmail) {
@@ -48,6 +114,26 @@ function getDisplayName(userEmail?: string | null) {
 
   return firstName.charAt(0).toUpperCase() + firstName.slice(1);
 }
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    notation: "compact",
+    compactDisplay: "short",
+  }).format(value);
+}
+
+// ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
 
 function StatCard({
   icon: Icon,
@@ -99,7 +185,31 @@ function StatCard({
   );
 }
 
-function ProposalStatusCard() {
+function ProposalStatusCard({
+  proposals,
+  onViewAll,
+}: {
+  proposals: FreelancerProposal[];
+  onViewAll?: () => void;
+}) {
+  const statusBadgeClasses: Record<
+    ProposalStatus,
+    { wrapper: string; badge: string }
+  > = {
+    interviewing: {
+      wrapper: "border-blue-200/80 bg-blue-50/80",
+      badge: "bg-blue-600 text-white",
+    },
+    under_review: {
+      wrapper: "border-slate-200 bg-slate-50/85",
+      badge: "bg-slate-200 text-slate-700",
+    },
+    hired: {
+      wrapper: "border-emerald-200 bg-emerald-50/85 text-slate-900",
+      badge: "bg-emerald-600 text-white",
+    },
+  };
+
   return (
     <Card className="rounded-[2rem] border-white/70 bg-white/92 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.35)]">
       <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
@@ -115,70 +225,66 @@ function ProposalStatusCard() {
           variant="ghost"
           size="sm"
           className="rounded-full px-3 text-blue-600 hover:bg-blue-50"
+          onClick={onViewAll}
         >
           Ver tudo
         </Button>
       </CardHeader>
 
       <CardContent className="space-y-3 pb-5">
-        <div className="rounded-[1.6rem] border border-blue-200/80 bg-blue-50/80 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-xl font-semibold text-slate-950">
-                3D Architectural Viz
-              </p>
-              <p className="text-sm font-medium text-slate-500">Nexus Build Ltd.</p>
-            </div>
-            <Badge className="rounded-full bg-blue-600 px-3 text-white">
-              Interviewing
-            </Badge>
+        {proposals.length === 0 ? (
+          <div className="rounded-[1.6rem] border border-dashed border-slate-200 bg-white p-6 text-center">
+            <p className="text-sm text-slate-400">
+              Nenhuma proposta ativa no momento.
+            </p>
           </div>
-          <div className="mt-4 flex items-center justify-between text-sm font-medium text-slate-500">
-            <span>Feedback em andamento</span>
-            <span className="text-base font-semibold text-slate-950">$4,200</span>
-          </div>
-        </div>
-
-        <div className="rounded-[1.6rem] border border-slate-200 bg-slate-50/85 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-xl font-semibold text-slate-950">iOS Social App</p>
-              <p className="text-sm font-medium text-slate-500">Swift Labs</p>
-            </div>
-            <Badge
-              variant="secondary"
-              className="rounded-full bg-slate-200 text-slate-700"
-            >
-              Under Review
-            </Badge>
-          </div>
-          <div className="mt-4 flex items-center justify-between text-sm font-medium text-slate-500">
-            <span>Resposta esperada hoje</span>
-            <span className="text-base font-semibold text-slate-950">$12,000</span>
-          </div>
-        </div>
-
-        <div className="rounded-[1.6rem] border border-emerald-200 bg-emerald-50/85 p-4 text-slate-900">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-xl font-semibold">Fullstack Dashboard</p>
-              <p className="text-sm font-medium text-slate-500">Fintech Global</p>
-            </div>
-            <Badge className="rounded-full bg-emerald-600 px-3 text-white">
-              Hired
-            </Badge>
-          </div>
-          <div className="mt-4 flex items-center justify-between text-sm font-medium text-slate-500">
-            <span>Kickoff em 2 dias</span>
-            <span className="text-base font-semibold text-slate-950">$8,500</span>
-          </div>
-        </div>
+        ) : (
+          proposals.map((proposal) => {
+            const styles = statusBadgeClasses[proposal.status];
+            return (
+              <div
+                key={proposal.id}
+                className={cn(
+                  "rounded-[1.6rem] border p-4",
+                  styles.wrapper,
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xl font-semibold text-slate-950">
+                      {proposal.projectName}
+                    </p>
+                    <p className="text-sm font-medium text-slate-500">
+                      {proposal.clientName}
+                    </p>
+                  </div>
+                  <Badge
+                    className={cn("rounded-full px-3", styles.badge)}
+                    variant={
+                      proposal.status === "under_review"
+                        ? "secondary"
+                        : "default"
+                    }
+                  >
+                    {proposal.statusLabel}
+                  </Badge>
+                </div>
+                <div className="mt-4 flex items-center justify-between text-sm font-medium text-slate-500">
+                  <span>{proposal.subtitle}</span>
+                  <span className="text-base font-semibold text-slate-950">
+                    {formatCurrency(proposal.proposedValue)}
+                  </span>
+                </div>
+              </div>
+            );
+          })
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function InsightCard() {
+function InsightCard({ insight }: { insight: FreelancerInsight }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Card className="rounded-[2rem] border-0 bg-slate-950 px-1 text-white shadow-[0_24px_60px_-36px_rgba(15,23,42,0.65)]">
@@ -188,9 +294,11 @@ function InsightCard() {
           </span>
         </CardHeader>
         <CardContent className="space-y-2 pb-6">
-          <p className="font-heading text-4xl font-bold tracking-tight">1.4k</p>
+          <p className="font-heading text-4xl font-bold tracking-tight">
+            {formatNumber(insight.profileViews)}
+          </p>
           <p className="text-sm uppercase tracking-[0.22em] text-slate-400">
-            Visualizacoes de perfil
+            Visualizações de perfil
           </p>
         </CardContent>
       </Card>
@@ -203,10 +311,10 @@ function InsightCard() {
         </CardHeader>
         <CardContent className="space-y-2 pb-6 text-slate-950">
           <p className="font-heading text-4xl font-bold tracking-tight">
-            Top Rated
+            {insight.rankLabel}
           </p>
           <p className="text-sm uppercase tracking-[0.22em] text-blue-700">
-            Freelancer rank
+            {insight.rankSubtitle}
           </p>
         </CardContent>
       </Card>
@@ -214,53 +322,47 @@ function InsightCard() {
   );
 }
 
-function SkillAssessmentCard() {
+function SkillAssessmentCard({
+  skills,
+  onRetake,
+}: {
+  skills: Skill[];
+  onRetake?: () => void;
+}) {
   return (
     <Card className="rounded-[2rem] border-white/70 bg-white/92 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.35)]">
       <CardHeader className="pb-3">
         <CardTitle className="text-2xl font-semibold tracking-tight text-slate-950">
-          Skill assessment
+          Avaliação de habilidades
         </CardTitle>
         <CardDescription className="text-sm text-slate-500">
           Indicadores resumidos do seu posicionamento atual.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5 pb-6">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm font-medium text-slate-600">
-            <span>UI/UX Design</span>
-            <span className="text-blue-600">Advanced</span>
+        {skills.map((skill) => (
+          <div key={skill.name} className="space-y-2">
+            <div className="flex items-center justify-between text-sm font-medium text-slate-600">
+              <span>{skill.name}</span>
+              <span className={cn("text-blue-600", skill.color)}>
+                {skill.levelLabel}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-200">
+              <div
+                className={cn("h-2 rounded-full", skill.color.replace("text-", "bg-"))}
+                style={{ width: `${skill.progress}%` }}
+              />
+            </div>
           </div>
-          <div className="h-2 rounded-full bg-slate-200">
-            <div className="h-2 w-[92%] rounded-full bg-blue-600" />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm font-medium text-slate-600">
-            <span>React Development</span>
-            <span className="text-blue-600">Expert</span>
-          </div>
-          <div className="h-2 rounded-full bg-slate-200">
-            <div className="h-2 w-[96%] rounded-full bg-blue-600" />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm font-medium text-slate-600">
-            <span>Project Management</span>
-            <span className="text-slate-500">Intermediate</span>
-          </div>
-          <div className="h-2 rounded-full bg-slate-200">
-            <div className="h-2 w-[72%] rounded-full bg-slate-400" />
-          </div>
-        </div>
+        ))}
 
         <Button
           variant="outline"
           className="h-11 w-full rounded-full border-blue-200 text-blue-700 hover:bg-blue-50"
+          onClick={onRetake}
         >
-          Refazer avaliacoes
+          Refazer avaliações
         </Button>
       </CardContent>
     </Card>
@@ -269,37 +371,231 @@ function SkillAssessmentCard() {
 
 function VisibilityBanner() {
   return (
-    <Card className="relative overflow-hidden rounded-[2.2rem] border-0 bg-slate-950 text-white shadow-[0_32px_80px_-42px_rgba(15,23,42,0.7)]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.28),transparent_35%),linear-gradient(135deg,rgba(30,41,59,0.3),transparent_60%)]" />
-      <CardContent className="relative flex flex-col gap-6 px-8 py-8 md:flex-row md:items-end md:justify-between">
-        <div className="max-w-2xl space-y-3">
-          <Badge className="rounded-full bg-white/10 px-3 text-white">
-            Pulse Plus
-          </Badge>
-          <h2 className="font-heading text-3xl font-bold tracking-tight">
-            Boost your visibility by 50%
-          </h2>
-          <p className="text-sm leading-7 text-slate-300">
-            Atualize seu perfil para desbloquear badges corporativos, prioridade
-            nas buscas e convites mais qualificados.
-          </p>
-        </div>
+    <div className="flex items-center gap-3 rounded-[1.6rem] border border-blue-200/60 bg-blue-50/70 px-5 py-4 text-sm text-blue-800 backdrop-blur">
+      <Sparkles className="size-5 shrink-0 text-blue-600" />
+      <p>
+        Dica: perfis com portfolio atualizado recebem{" "}
+        <span className="font-semibold">até 3x mais visualizações</span> dos
+        publishers.
+      </p>
+    </div>
+  );
+}
 
-        <Button className="h-12 rounded-full bg-linear-to-r from-blue-500 to-cyan-400 px-6 text-white hover:opacity-90">
-          Learn more
-        </Button>
+// ============================================================================
+// SKELETON / LOADING STATES
+// ============================================================================
+
+function StatCardSkeleton({ tone = "default" }: { tone?: "default" | "accent" }) {
+  return (
+    <Card
+      className={cn(
+        "rounded-[2rem] border-white/70 px-1 py-1 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.35)] backdrop-blur",
+        tone === "accent"
+          ? "bg-linear-to-br from-blue-600 via-blue-500 to-cyan-400"
+          : "bg-white/90",
+      )}
+    >
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="h-5 w-24 animate-pulse rounded-full bg-slate-300/40" />
+          <div className="size-10 animate-pulse rounded-2xl bg-slate-300/40" />
+        </div>
+      </CardHeader>
+      <CardContent className="pb-5">
+        <div className="h-8 w-20 animate-pulse rounded-lg bg-slate-300/40" />
       </CardContent>
     </Card>
   );
 }
 
-export function FreelancerHome({ userEmail }: FreelancerHomeProps) {
+function ProposalsSkeleton() {
+  return (
+    <Card className="rounded-[2rem] border-white/70 bg-white/92 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.35)]">
+      <CardHeader className="pb-3">
+        <div className="h-6 w-40 animate-pulse rounded-lg bg-slate-300/40" />
+        <div className="mt-1 h-3 w-56 animate-pulse rounded-full bg-slate-300/40" />
+      </CardHeader>
+      <CardContent className="space-y-3 pb-5">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="rounded-[1.6rem] border border-slate-200 bg-white p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2">
+                <div className="h-5 w-32 animate-pulse rounded-full bg-slate-300/40" />
+                <div className="h-3 w-24 animate-pulse rounded-full bg-slate-300/40" />
+              </div>
+              <div className="h-5 w-20 animate-pulse rounded-full bg-slate-300/40" />
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <div className="h-3 w-28 animate-pulse rounded-full bg-slate-300/40" />
+              <div className="h-5 w-16 animate-pulse rounded-full bg-slate-300/40" />
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function InsightsSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Card className="rounded-[2rem] border-0 bg-slate-950 px-1 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.65)]">
+        <CardHeader className="pb-3">
+          <div className="size-12 animate-pulse rounded-2xl bg-white/10" />
+        </CardHeader>
+        <CardContent className="space-y-2 pb-6">
+          <div className="h-8 w-16 animate-pulse rounded-lg bg-white/10" />
+          <div className="h-3 w-32 animate-pulse rounded-full bg-white/10" />
+        </CardContent>
+      </Card>
+      <Card className="rounded-[2rem] border-0 bg-linear-to-br from-blue-100 via-indigo-50 to-cyan-50 px-1 shadow-[0_24px_60px_-36px_rgba(37,99,235,0.35)]">
+        <CardHeader className="pb-3">
+          <div className="size-12 animate-pulse rounded-2xl bg-slate-300/40" />
+        </CardHeader>
+        <CardContent className="space-y-2 pb-6">
+          <div className="h-8 w-24 animate-pulse rounded-lg bg-slate-300/40" />
+          <div className="h-3 w-28 animate-pulse rounded-full bg-slate-300/40" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SkillsSkeleton() {
+  return (
+    <Card className="rounded-[2rem] border-white/70 bg-white/92 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.35)]">
+      <CardHeader className="pb-3">
+        <div className="h-6 w-48 animate-pulse rounded-lg bg-slate-300/40" />
+        <div className="mt-1 h-3 w-56 animate-pulse rounded-full bg-slate-300/40" />
+      </CardHeader>
+      <CardContent className="space-y-5 pb-6">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="h-3 w-28 animate-pulse rounded-full bg-slate-300/40" />
+              <div className="h-3 w-20 animate-pulse rounded-full bg-slate-300/40" />
+            </div>
+            <div className="h-2 animate-pulse rounded-full bg-slate-200">
+              <div className="h-2 w-2/3 animate-pulse rounded-full bg-slate-300/40" />
+            </div>
+          </div>
+        ))}
+        <div className="h-11 animate-pulse rounded-full bg-slate-300/40" />
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+export function FreelancerHome({
+  userEmail,
+  data,
+  isLoading = false,
+  error,
+  onViewProposals,
+  onViewSavedJobs,
+  onViewAllProposals,
+  onRetakeAssessments,
+  onUpdatePortfolio,
+  onViewMessages,
+}: FreelancerHomeProps) {
   const displayName = getDisplayName(userEmail);
+
+  const fallbackData: FreelancerHomeData = {
+    summary: {
+      monthlyRevenue: 0,
+      jobSuccessRate: 0,
+    },
+    proposals: [
+      {
+        id: "1",
+        projectName: "Visualização Arquitetônica 3D",
+        clientName: "Nexus Build Ltd.",
+        status: "interviewing",
+        statusLabel: "Em entrevista",
+        subtitle: "Feedback em andamento",
+        proposedValue: 4200,
+        accentColor: "blue",
+      },
+      {
+        id: "2",
+        projectName: "App Social iOS",
+        clientName: "Swift Labs",
+        status: "under_review",
+        statusLabel: "Em análise",
+        subtitle: "Resposta esperada hoje",
+        proposedValue: 12000,
+        accentColor: "slate",
+      },
+      {
+        id: "3",
+        projectName: "Dashboard Fullstack",
+        clientName: "Fintech Global",
+        status: "hired",
+        statusLabel: "Contratado",
+        subtitle: "Kickoff em 2 dias",
+        proposedValue: 8500,
+        accentColor: "emerald",
+      },
+    ],
+    insight: {
+      profileViews: 1400,
+      rankLabel: "Top Rated",
+      rankSubtitle: "Rank de freelancer",
+    },
+    skills: [
+      {
+        name: "UI/UX Design",
+        level: "advanced",
+        levelLabel: "Avançado",
+        progress: 92,
+        color: "text-blue-600",
+      },
+      {
+        name: "React Development",
+        level: "expert",
+        levelLabel: "Especialista",
+        progress: 96,
+        color: "text-blue-600",
+      },
+      {
+        name: "Gestão de Projetos",
+        level: "intermediate",
+        levelLabel: "Intermediário",
+        progress: 72,
+        color: "text-slate-500",
+      },
+    ],
+    profileViewGrowth: "24%",
+    workspaceSynced: true,
+  };
+
+  const resolvedData =
+    data ?? {
+      ...fallbackData,
+      proposals: [],
+      insight: {
+        profileViews: 0,
+        rankLabel: "Perfil ativo",
+        rankSubtitle: "Rank de freelancer",
+      },
+      skills: [],
+      profileViewGrowth: "0%",
+      workspaceSynced: false,
+    };
 
   return (
     <div className="relative overflow-hidden bg-[linear-gradient(180deg,#f8fbff_0%,#f6f8fc_28%,#f8fafc_100%)]">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.16),transparent_36%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.14),transparent_30%)]" />
 
+      {/* ── HERO SECTION ── */}
       <motion.section
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
@@ -313,31 +609,36 @@ export function FreelancerHome({ userEmail }: FreelancerHomeProps) {
                 <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
                   <div className="max-w-2xl space-y-5">
                     <Badge className="rounded-full bg-blue-50 px-3 text-blue-700">
-                      Pulse Workspace
+                      <BadgeCheck />
+                      Verificado
                     </Badge>
 
                     <div className="space-y-3">
                       <h1 className="font-heading text-4xl font-bold tracking-tight text-slate-950 md:text-6xl">
-                        Welcome back, {displayName}
+                        Bem-vindo de volta, {displayName}
                       </h1>
                       <p className="max-w-2xl text-base leading-8 text-slate-600 md:text-lg">
                         Seu perfil recebeu{" "}
                         <span className="font-semibold text-blue-600">
-                          24% mais visualizacoes
+                          {resolvedData.profileViewGrowth} mais visualizações
                         </span>{" "}
-                        nesta semana. Continue construindo tracao com propostas
-                        mais fortes e respostas mais rapidas.
+                        nesta semana. Continue construindo tração com propostas
+                        mais fortes e respostas mais rápidas.
                       </p>
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                      <Button className="h-12 rounded-full bg-slate-950 px-6 text-white hover:bg-slate-900">
+                      <Button
+                        className="h-12 rounded-full bg-slate-950 px-6 text-white hover:bg-slate-900"
+                        onClick={onViewProposals}
+                      >
                         <Target className="size-4" />
                         Minhas propostas
                       </Button>
                       <Button
                         variant="outline"
                         className="h-12 rounded-full border-white bg-white/80 px-6 text-slate-700 hover:bg-slate-50"
+                        onClick={onViewSavedJobs}
                       >
                         <Heart className="size-4" />
                         Vagas salvas
@@ -346,17 +647,26 @@ export function FreelancerHome({ userEmail }: FreelancerHomeProps) {
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2 xl:w-[320px] xl:grid-cols-1">
-                    <StatCard
-                      icon={Sparkles}
-                      eyebrow="Monthly Revenue"
-                      value="$12,450"
-                      tone="accent"
-                    />
-                    <StatCard
-                      icon={Star}
-                      eyebrow="Job Success"
-                      value="98%"
-                    />
+                    {isLoading ? (
+                      <>
+                        <StatCardSkeleton tone="accent" />
+                        <StatCardSkeleton />
+                      </>
+                    ) : (
+                      <>
+                        <StatCard
+                          icon={CircleDollarSign}
+                          eyebrow="Receita mensal"
+                          value={formatCurrency(resolvedData.summary.monthlyRevenue)}
+                          tone="accent"
+                        />
+                        <StatCard
+                          icon={Star}
+                          eyebrow="Taxa de sucesso"
+                          value={`${resolvedData.summary.jobSuccessRate}%`}
+                        />
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -366,23 +676,46 @@ export function FreelancerHome({ userEmail }: FreelancerHomeProps) {
           </div>
 
           <div className="space-y-6">
-            <ProposalStatusCard />
-            <InsightCard />
-            <SkillAssessmentCard />
+            {isLoading ? (
+              <>
+                <ProposalsSkeleton />
+                <InsightsSkeleton />
+                <SkillsSkeleton />
+              </>
+            ) : (
+              <>
+                <ProposalStatusCard
+                  proposals={resolvedData.proposals}
+                  onViewAll={onViewAllProposals}
+                />
+                <InsightCard insight={resolvedData.insight} />
+                <SkillAssessmentCard
+                  skills={resolvedData.skills}
+                  onRetake={onRetakeAssessments}
+                />
+              </>
+            )}
           </div>
         </div>
       </motion.section>
 
+      {/* ── FEATURED JOBS SECTION ── */}
       <motion.section
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, delay: 0.08, ease: "easeOut" }}
         className="container relative mx-auto px-6 pb-16 lg:px-10"
       >
+        {error ? (
+          <div className="mb-6 rounded-[1.6rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+            {error}
+          </div>
+        ) : null}
+
         <div className="mb-6 flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/75 px-6 py-5 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.28)] backdrop-blur md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-600">
-              Jobs for you
+              Vagas para você
             </p>
             <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-950">
               Combine seu perfil com oportunidades mais aderentes
@@ -396,7 +729,7 @@ export function FreelancerHome({ userEmail }: FreelancerHomeProps) {
             </span>
             <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 font-medium">
               <MessageSquareMore className="size-4 text-blue-600" />
-              Feedback rapido
+              Feedback rápido
             </span>
             <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 font-medium">
               <Bell className="size-4 text-blue-600" />
@@ -408,6 +741,7 @@ export function FreelancerHome({ userEmail }: FreelancerHomeProps) {
         <FeaturedJobsSection />
       </motion.section>
 
+      {/* ── WORKSPACE STATUS FOOTER ── */}
       <section className="container mx-auto px-6 pb-16 lg:px-10">
         <Card className="rounded-[2rem] border-white/70 bg-white/85 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.26)]">
           <CardContent className="flex flex-col gap-6 px-6 py-6 md:flex-row md:items-center md:justify-between">
@@ -419,10 +753,10 @@ export function FreelancerHome({ userEmail }: FreelancerHomeProps) {
               </Avatar>
               <div>
                 <p className="text-lg font-semibold text-slate-950">
-                  Seu workspace esta sincronizado
+                  Seu workspace está sincronizado
                 </p>
                 <p className="text-sm text-slate-500">
-                  Continue respondendo mensagens e atualizando portfolio para
+                  Continue respondendo mensagens e atualizando portfólio para
                   manter o momentum.
                 </p>
               </div>
@@ -436,10 +770,14 @@ export function FreelancerHome({ userEmail }: FreelancerHomeProps) {
               <Button
                 variant="outline"
                 className="h-11 rounded-full border-slate-200 px-5 text-slate-700 hover:bg-slate-50"
+                onClick={onUpdatePortfolio}
               >
-                Atualizar portfolio
+                Atualizar portfólio
               </Button>
-              <Button className="h-11 rounded-full bg-blue-600 px-5 text-white hover:bg-blue-700">
+              <Button
+                className="h-11 rounded-full bg-blue-600 px-5 text-white hover:bg-blue-700"
+                onClick={onViewMessages}
+              >
                 Ver mensagens
                 <ArrowRight className="size-4" />
               </Button>

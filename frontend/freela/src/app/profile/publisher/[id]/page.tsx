@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "motion/react";
@@ -281,11 +282,44 @@ export default function PublisherProfilePage() {
               delay={0.14}
             />
 
-            <EmptySection
-              title="Oportunidades Publicadas"
-              description="As oportunidades deste publisher ainda nao estao sendo carregadas nesta tela a partir do banco de dados."
-              delay={0.2}
-            />
+            <motion.div {...fadeUp(0.2)}>
+              <Card className="rounded-3xl border-0 shadow-[0_16px_48px_-16px_rgba(15,23,42,0.07)]">
+                <CardContent className="p-8">
+                  <h2 className="text-base font-bold text-slate-900">
+                    Oportunidades Publicadas
+                  </h2>
+                  {profile?.opportunities.length ? (
+                    <div className="mt-5 space-y-3">
+                      {profile.opportunities.map((opportunity) => (
+                        <Link
+                          key={opportunity.opportunity_id}
+                          href={`/jobs/${opportunity.opportunity_id}`}
+                          className="block rounded-2xl bg-slate-50 px-4 py-4 transition-colors hover:bg-blue-50"
+                        >
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="font-semibold text-slate-900">
+                                {opportunity.title}
+                              </p>
+                              <p className="mt-1 text-sm text-slate-500">
+                                {opportunity.category?.category_name ?? "Sem categoria"}
+                              </p>
+                            </div>
+                            <span className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                              {opportunity.status === "open" ? "Aberta" : "Fechada"}
+                            </span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
+                      Este publisher ainda nao possui oportunidades publicadas.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
 
           <div className="space-y-6 lg:sticky lg:top-24">

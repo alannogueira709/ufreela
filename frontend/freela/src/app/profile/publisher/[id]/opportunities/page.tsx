@@ -21,7 +21,9 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { getOpportunities } from "@/lib/job-service";
+import { getMyPublisherProposals } from "@/lib/proposal-service";
 import type { Opportunity } from "@/types/opportunity";
+import type { Proposal } from "@/types/proposal";
 import type { UserRole } from "@/types/nav";
 
 function mapRole(role: UserRole | undefined) {
@@ -31,11 +33,10 @@ function mapRole(role: UserRole | undefined) {
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("pt-BR", {
     style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    currency: "BRL",
+    maximumFractionDigits: 0,
   }).format(value);
 }
 
@@ -50,34 +51,17 @@ function estimateOpportunityValue(job: Opportunity) {
   return min || max || 0;
 }
 
-function progressForJob(job: Opportunity, index: number) {
-  if (job.status === "closed") {
-    return 100;
-  }
-
-  const base = [65, 20, 48, 82];
-  return base[index % base.length];
-}
-
 function statusLabel(job: Opportunity) {
   if (job.status === "closed") {
-    return "Completed";
+    return "Fechada";
   }
 
-  if (job.work_modality === "hybrid") {
-    return "On Hold";
-  }
-
-  return "In Progress";
+  return "Aberta";
 }
 
 function statusTone(job: Opportunity) {
   if (job.status === "closed") {
     return "bg-emerald-100 text-emerald-700";
-  }
-
-  if (job.work_modality === "hybrid") {
-    return "bg-slate-100 text-slate-600";
   }
 
   return "bg-[#e8ecff] text-[#4962ff]";
@@ -88,6 +72,7 @@ export default function PublisherOpportunitiesPage() {
   const userId = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const { user, isLoading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<Opportunity[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -102,23 +87,30 @@ export default function PublisherOpportunitiesPage() {
       try {
         setIsLoading(true);
         setError("");
-        const data = await getOpportunities({
-          publisher: userId,
-          status: "all",
-        });
+        const [data, proposalData] = await Promise.all([
+          getOpportunities({
+            publisher: userId,
+            status: "all",
+          }),
+          user?.role === "publisher" && user.id === userId
+            ? getMyPublisherProposals()
+            : Promise.resolve([]),
+        ]);
         setJobs(data);
+        setProposals(proposalData);
       } catch (loadError) {
         setError(
           getApiErrorMessage(loadError, "Nao foi possivel carregar os jobs deste publisher."),
         );
         setJobs([]);
+        setProposals([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     void loadJobs();
-  }, [userId]);
+  }, [user?.id, user?.role, userId]);
 
   const activeRole = mapRole(user?.role);
   const filteredJobs = useMemo(() => {
@@ -141,12 +133,17 @@ export default function PublisherOpportunitiesPage() {
     0,
   );
   const pendingValue = activeJobs.reduce(
-    (sum, job) => sum + estimateOpportunityValue(job) * 0.18,
+    (sum, job) => sum + estimateOpportunityValue(job),
     0,
   );
-  const invoicedValue = activeJobs.reduce(
-    (sum, job) => sum + estimateOpportunityValue(job) * 0.08,
-    0,
+  const proposalsByOpportunity = useMemo(
+    () =>
+      proposals.reduce<Record<number, Proposal[]>>((acc, proposal) => {
+        const opportunityId = proposal.opportunity.opportunity_id;
+        acc[opportunityId] = [...(acc[opportunityId] ?? []), proposal];
+        return acc;
+      }, {}),
+    [proposals],
   );
 
   if (authLoading || isLoading) {
@@ -202,31 +199,33 @@ export default function PublisherOpportunitiesPage() {
             <aside className="space-y-6">
               <div className="rounded-[32px] bg-white p-6 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.18)]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Earnings Summary
+                  Resumo de vagas
                 </p>
-                <p className="mt-3 text-sm text-slate-500">Total Earnings</p>
+                <p className="mt-3 text-sm text-slate-500">Valor publicado</p>
                 <p className="mt-1 font-heading text-4xl font-bold tracking-tight text-slate-950">
                   {formatCurrency(totalValue)}
                 </p>
 
                 <div className="mt-6 grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-slate-400">Pending</p>
+                    <p className="text-xs text-slate-400">Em aberto</p>
                     <p className="mt-1 text-xl font-bold text-slate-800">
                       {formatCurrency(pendingValue)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400">Invoiced</p>
+                    <p className="text-xs text-slate-400">Propostas</p>
                     <p className="mt-1 text-xl font-bold text-slate-800">
-                      {formatCurrency(invoicedValue)}
+                      {proposals.length}
                     </p>
                   </div>
                 </div>
 
-                <Button className="mt-6 h-12 w-full rounded-full bg-[#1f4cff] text-sm font-semibold text-white hover:bg-[#1743ea]">
-                  Withdraw Funds
-                </Button>
+                <Link href="/jobs/post">
+                  <Button className="mt-6 h-12 w-full rounded-full bg-[#1f4cff] text-sm font-semibold text-white hover:bg-[#1743ea]">
+                    Publicar vaga
+                  </Button>
+                </Link>
               </div>
 
               <div className="rounded-[32px] bg-[#f0f2f6] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
@@ -239,9 +238,9 @@ export default function PublisherOpportunitiesPage() {
                       <Clock3 className="size-4 text-[#4962ff]" />
                       <div>
                         <p className="text-sm font-semibold text-slate-800">
-                          {activeJobs.length * 42 || 0} Hours
+                          {activeJobs.length} abertas
                         </p>
-                        <p className="text-xs text-slate-400">Tracked this month</p>
+                        <p className="text-xs text-slate-400">Oportunidades recebendo propostas</p>
                       </div>
                     </div>
                   </div>
@@ -250,9 +249,9 @@ export default function PublisherOpportunitiesPage() {
                       <FileText className="size-4 text-[#4962ff]" />
                       <div>
                         <p className="text-sm font-semibold text-slate-800">
-                          {filteredJobs.length} Milestones
+                          {proposals.length} propostas
                         </p>
-                        <p className="text-xs text-slate-400">Connected to active jobs</p>
+                        <p className="text-xs text-slate-400">Recebidas nas suas vagas</p>
                       </div>
                     </div>
                   </div>
@@ -265,7 +264,7 @@ export default function PublisherOpportunitiesPage() {
                 <button className="border-b-2 border-[#3d5afe] pb-3 text-[#3d5afe]">
                   Active ({activeJobs.length})
                 </button>
-                <button className="pb-3">Proposals ({Math.max(filteredJobs.length * 2, 0)})</button>
+                <button className="pb-3">Propostas ({proposals.length})</button>
                 <button className="pb-3">Completed ({closedJobs.length})</button>
                 <button className="pb-3">Invoices</button>
               </div>
@@ -276,9 +275,9 @@ export default function PublisherOpportunitiesPage() {
                 </h2>
 
                 {activeJobs.length > 0 ? (
-                  activeJobs.map((job, index) => {
-                    const progress = progressForJob(job, index);
+                  activeJobs.map((job) => {
                     const estimated = estimateOpportunityValue(job);
+                    const jobProposals = proposalsByOpportunity[job.opportunity_id] ?? [];
 
                     return (
                       <article
@@ -310,42 +309,21 @@ export default function PublisherOpportunitiesPage() {
                           </div>
                         </div>
 
-                        <div className="mt-5">
-                          <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                            <span>Project Progress</span>
-                            <span className="text-[#3d5afe]">{progress}%</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-slate-100">
-                            <div
-                              className="h-2 rounded-full bg-[#1f4cff]"
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
-                        </div>
-
                         <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_170px]">
                           <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                              Next Milestone
+                              Propostas recebidas
                             </p>
                             <p className="mt-1 text-sm font-semibold text-slate-800">
-                              {job.status === "closed"
-                                ? "Final delivery approved"
-                                : progress > 50
-                                  ? "Client review and alignment"
-                                  : "Discovery and scope validation"}
+                              {jobProposals.length} candidato(s)
                             </p>
                             <p className="mt-1 text-xs text-slate-400">
-                              {job.status === "closed"
-                                ? "Completed recently"
-                                : progress > 50
-                                  ? "Due in 5 days"
-                                  : "Pending kickoff confirmation"}
+                              {jobProposals.filter((proposal) => proposal.status === "pending").length} pendente(s)
                             </p>
                           </div>
                           <div className="sm:text-right">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                              Budget Balance
+                              Budget
                             </p>
                             <p className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
                               {formatCurrency(estimated)}
@@ -374,9 +352,17 @@ export default function PublisherOpportunitiesPage() {
 
                 <div className="rounded-[30px] bg-white p-4 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.18)]">
                   <div className="space-y-2">
-                    {filteredJobs.slice(0, 3).map((job, index) => (
+                    {proposals.slice(0, 3).map((proposal, index) => {
+                      const job = {
+                        ...proposal.opportunity,
+                        budget_min: proposal.proposed_value,
+                        budget_max: proposal.proposed_value,
+                        created_at: proposal.created_at,
+                      };
+
+                      return (
                       <div
-                        key={job.opportunity_id}
+                        key={proposal.proposal_id}
                         className="flex flex-col gap-3 rounded-2xl px-3 py-4 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex items-center gap-4">
@@ -385,7 +371,7 @@ export default function PublisherOpportunitiesPage() {
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-slate-800">
-                              {job.title}
+                              {`${proposal.freelancer.name} ${proposal.freelancer.last_name}`.trim() || "Freelancer"}
                             </p>
                             <p className="text-xs text-slate-400">
                               Submitted {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(job.created_at))} • Bid: {formatCurrency(estimateOpportunityValue(job))}
@@ -403,7 +389,7 @@ export default function PublisherOpportunitiesPage() {
                           }`}>
                             {index === 0 ? "• Interviewing" : index === 1 ? "• Under Review" : "• Draft"}
                           </span>
-                          <Link href={`/jobs/${job.opportunity_id}`}>
+                          <Link href={`/jobs/${proposal.opportunity.opportunity_id}`}>
                             <Button
                               variant="outline"
                               className="h-9 rounded-full border-slate-200 bg-white px-4 text-xs font-semibold text-[#3d5afe]"
@@ -414,7 +400,8 @@ export default function PublisherOpportunitiesPage() {
                           </Link>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>

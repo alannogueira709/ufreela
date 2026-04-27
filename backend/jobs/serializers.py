@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Category, Opportunity, Skill
+from .models import Category, Opportunity, Proposal, Skill
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -50,6 +50,72 @@ class OpportunityListSerializer(serializers.ModelSerializer):
             "id": str(obj.publisher.user_id_id),
             "company_name": obj.publisher.company_name,
         }
+
+
+class ProposalFreelancerSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    name = serializers.CharField(allow_blank=True)
+    last_name = serializers.CharField(allow_blank=True)
+    profile_img = serializers.CharField(allow_null=True)
+    professional_level = serializers.CharField(allow_blank=True)
+    mean_eval = serializers.CharField()
+
+
+class ProposalSerializer(serializers.ModelSerializer):
+    opportunity = OpportunityListSerializer(read_only=True)
+    freelancer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Proposal
+        fields = [
+            "proposal_id",
+            "opportunity",
+            "freelancer",
+            "proposed_value",
+            "cover_letter",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_freelancer(self, obj: Proposal):
+        freelancer = obj.freelancer
+        user = freelancer.user_id
+        return {
+            "id": str(user.id),
+            "name": user.name,
+            "last_name": user.last_name,
+            "profile_img": user.profile_img.url if user.profile_img else None,
+            "professional_level": freelancer.professional_level,
+            "mean_eval": str(freelancer.mean_eval),
+        }
+
+
+class ProposalCreateSerializer(serializers.Serializer):
+    proposed_value = serializers.DecimalField(max_digits=10, decimal_places=2)
+    cover_letter = serializers.CharField()
+
+    def validate(self, attrs):
+        attrs["cover_letter"] = attrs["cover_letter"].strip()
+
+        if attrs["proposed_value"] <= 0:
+            raise serializers.ValidationError(
+                {"proposed_value": "Informe um valor de proposta maior que zero."}
+            )
+
+        if not attrs["cover_letter"]:
+            raise serializers.ValidationError(
+                {"cover_letter": "Informe uma mensagem para o publisher."}
+            )
+
+        return attrs
+
+    def create(self, validated_data):
+        return Proposal.objects.create(
+            opportunity=self.context["opportunity"],
+            freelancer=self.context["freelancer"],
+            **validated_data,
+        )
 
 
 class OpportunityCreateSerializer(serializers.Serializer):
