@@ -70,7 +70,7 @@ export interface PublisherHomeData {
 // ============================================================================
 
 type PublisherHomeProps = {
-  userEmail?: string | null;
+  userDisplayName?: string | null;
   /** Dados vindos do banco de dados. Se não fornecido, a UI renderiza estados de carregamento. */
   data?: PublisherHomeData | null;
   isLoading?: boolean;
@@ -91,20 +91,12 @@ type PublisherHomeProps = {
 // HELPERS
 // ============================================================================
 
-function getPublisherName(userEmail?: string | null) {
-  if (!userEmail) {
+function getPublisherName(userDisplayName?: string | null) {
+  if (!userDisplayName) {
     return "Alexander";
   }
 
-  const localPart = userEmail.split("@")[0] ?? "Alexander";
-  const cleaned = localPart.replace(/[._-]+/g, " ").trim();
-  const [firstName] = cleaned.split(" ");
-
-  if (!firstName) {
-    return "Alexander";
-  }
-
-  return firstName.charAt(0).toUpperCase() + firstName.slice(1);
+  return userDisplayName.trim() || "Alexander";
 }
 
 function formatCurrency(value: number): string {
@@ -424,7 +416,7 @@ function ProposalsSkeleton() {
 // ============================================================================
 
 export function PublisherHome({
-  userEmail,
+  userDisplayName,
   data,
   isLoading = false,
   error,
@@ -434,7 +426,7 @@ export function PublisherHome({
   onPostJob,
   onOpenAnalytics,
 }: PublisherHomeProps) {
-  const displayName = getPublisherName(userEmail);
+  const displayName = getPublisherName(userDisplayName);
 
   const fallbackData: PublisherHomeData = {
     summary: {

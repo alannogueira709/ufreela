@@ -81,7 +81,7 @@ export interface FreelancerHomeData {
 // ============================================================================
 
 type FreelancerHomeProps = {
-  userEmail?: string | null;
+  userDisplayName?: string | null;
   /** Dados vindos do banco de dados. Se não fornecido, a UI renderiza estados de carregamento. */
   data?: FreelancerHomeData | null;
   isLoading?: boolean;
@@ -99,20 +99,12 @@ type FreelancerHomeProps = {
 // HELPERS
 // ============================================================================
 
-function getDisplayName(userEmail?: string | null) {
-  if (!userEmail) {
+function getDisplayName(userDisplayName?: string | null) {
+  if (!userDisplayName) {
     return "Alex";
   }
 
-  const localPart = userEmail.split("@")[0] ?? "Alex";
-  const cleaned = localPart.replace(/[._-]+/g, " ").trim();
-  const [firstName] = cleaned.split(" ");
-
-  if (!firstName) {
-    return "Alex";
-  }
-
-  return firstName.charAt(0).toUpperCase() + firstName.slice(1);
+  return userDisplayName.trim() || "Alex";
 }
 
 function formatCurrency(value: number): string {
@@ -495,7 +487,7 @@ function SkillsSkeleton() {
 // ============================================================================
 
 export function FreelancerHome({
-  userEmail,
+  userDisplayName,
   data,
   isLoading = false,
   error,
@@ -506,7 +498,7 @@ export function FreelancerHome({
   onUpdatePortfolio,
   onViewMessages,
 }: FreelancerHomeProps) {
-  const displayName = getDisplayName(userEmail);
+  const displayName = getDisplayName(userDisplayName);
 
   const fallbackData: FreelancerHomeData = {
     summary: {

@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function WelcomeFreelancerPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const welcomeName = user?.first_name || user?.display_name || "Freelancer";
 
   useEffect(() => {
     if (!isLoading) {
@@ -44,7 +45,7 @@ export default function WelcomeFreelancerPage() {
           </p>
           <h1 className="font-manrope text-5xl font-extrabold tracking-tight text-slate-950 sm:text-6xl">
             Bem-vindo ao uFreela,
-            <span className="block text-blue-600">{user.email.split("@")[0]}</span>
+            <span className="block text-blue-600">{welcomeName}</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl font-inter text-base leading-7 text-slate-500 sm:text-lg">
             Para começarmos a sugerir projetos mais aderentes ao seu perfil,

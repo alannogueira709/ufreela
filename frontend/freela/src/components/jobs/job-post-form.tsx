@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Info, Minus, Plus } from "lucide-react";
+import { Bookmark, Info, Minus, Plus } from "lucide-react";
 
 import Loading from "@/components/shared/Loading";
 import Footer from "@/components/shared/Footer";
 import Navbar from "@/components/shared/Navbar";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getApiErrorMessage } from "@/lib/api-errors";
@@ -37,9 +38,9 @@ function mapRole(role: UserRole | undefined) {
 }
 
 function formatRange(min: string, max: string) {
-  const formatter = new Intl.NumberFormat("en-US", {
+  const formatter = new Intl.NumberFormat("pt-BR", {
     style: "currency",
-    currency: "USD",
+    currency: "BRL",
     maximumFractionDigits: 0,
   });
 
@@ -71,7 +72,7 @@ export function JobPostForm() {
         setError(
           getApiErrorMessage(
             loadError,
-            "Nao foi possivel carregar categorias e skills para publicar a vaga.",
+            "Não foi possível carregar categorias e skills para publicar a vaga.",
           ),
         );
       } finally {
@@ -92,7 +93,7 @@ export function JobPostForm() {
         );
       } catch (loadError) {
         setError(
-          getApiErrorMessage(loadError, "Nao foi possivel atualizar as skills."),
+          getApiErrorMessage(loadError, "Não foi possível atualizar as skills."),
         );
       }
     };
@@ -130,7 +131,7 @@ export function JobPostForm() {
       setError(
         getApiErrorMessage(
           submitError,
-          "Nao foi possivel criar a oportunidade agora.",
+          "Não foi possível criar a oportunidade agora.",
         ),
       );
     } finally {
@@ -143,7 +144,7 @@ export function JobPostForm() {
       <div className="flex min-h-screen flex-col bg-[#f6f7fb] text-slate-900">
         <Navbar role="guest" />
         <main className="flex-1">
-          <Loading text="Preparando formulario..." />
+          <Loading text="Preparando formulário..." />
         </main>
         <Footer />
       </div>
@@ -157,17 +158,17 @@ export function JobPostForm() {
         <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
           <div className="space-y-3 text-center">
             <h1 className="font-heading text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">
-              Post a Job
+              Publique uma vaga
             </h1>
             <p className="text-base text-slate-500">
-              Define your vision and connect with elite architectural talent.
+              Preencha os campos abaixo para publicar sua vaga e se conectar com os talentos da comunidade acadêmica.
             </p>
           </div>
 
           {!canPublish ? (
             <div className="mx-auto w-full max-w-4xl rounded-[30px] border border-amber-200 bg-amber-50 px-6 py-8">
               <h2 className="font-heading text-2xl font-bold tracking-tight text-amber-950">
-                Publicacao restrita a publishers
+                Publicação restrita a publishers
               </h2>
               <p className="mt-3 text-sm leading-7 text-amber-900/80">
                 Entre com uma conta de publisher para publicar vagas neste fluxo.
@@ -195,7 +196,7 @@ export function JobPostForm() {
               <div className="space-y-7">
                 <div className="space-y-2">
                   <label htmlFor="title" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Job Title
+                    Título da Vaga
                   </label>
                   <Input
                     id="title"
@@ -215,7 +216,7 @@ export function JobPostForm() {
                 <div className="grid gap-6 md:grid-cols-[1fr_1.2fr]">
                   <div className="space-y-2">
                     <label htmlFor="category_id" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Category
+                      Categoria
                     </label>
                     <select
                       id="category_id"
@@ -239,7 +240,7 @@ export function JobPostForm() {
 
                   <div className="space-y-2">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Required Skills
+                      Habilidades Necessárias
                     </span>
                     <div className="min-h-14 rounded-2xl bg-slate-100 px-3 py-3">
                       <div className="flex flex-wrap gap-2">
@@ -274,7 +275,7 @@ export function JobPostForm() {
 
                 <div className="space-y-2">
                   <label htmlFor="description" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Project Description
+                    Descrição do projeto
                   </label>
                   <div className="overflow-hidden rounded-[24px] border border-slate-100 bg-slate-100">
                     <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 text-xs font-medium text-slate-400">
@@ -295,7 +296,7 @@ export function JobPostForm() {
                         }))
                       }
                       className="min-h-56 border-0 bg-transparent px-5 py-4 text-sm leading-7 shadow-none focus-visible:ring-0"
-                      placeholder="Describe the architectural soul of your project..."
+                      placeholder="Descreva a ideia que você quer tirar do papel..."
                     />
                   </div>
                 </div>
@@ -303,7 +304,7 @@ export function JobPostForm() {
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">
                     <label htmlFor="xp_level" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Experience Level
+                      Nível de Experiência
                     </label>
                     <select
                       id="xp_level"
@@ -316,16 +317,16 @@ export function JobPostForm() {
                       }
                       className="h-14 w-full rounded-2xl border border-transparent bg-slate-100 px-4 text-sm text-slate-700 outline-none focus:border-blue-300"
                     >
-                      <option value="">Not specified</option>
-                      <option value="junior">Junior</option>
-                      <option value="mid">Mid</option>
-                      <option value="senior">Senior</option>
+                      <option value="">Não especificado</option>
+                      <option value="junior">Júnior</option>
+                      <option value="mid">Pleno</option>
+                      <option value="senior">Sênior</option>
                     </select>
                   </div>
 
                   <div className="space-y-2">
                     <label htmlFor="work_modality" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Work Modality
+                      Modalidade da Vaga
                     </label>
                     <select
                       id="work_modality"
@@ -338,10 +339,10 @@ export function JobPostForm() {
                       }
                       className="h-14 w-full rounded-2xl border border-transparent bg-slate-100 px-4 text-sm text-slate-700 outline-none focus:border-blue-300"
                     >
-                      <option value="">Not specified</option>
-                      <option value="remote">Remote</option>
-                      <option value="hybrid">Hybrid</option>
-                      <option value="onsite">Onsite</option>
+                      <option value="">Não especificado</option>
+                      <option value="remote">Remoto</option>
+                      <option value="hybrid">Híbrido</option>
+                      <option value="onsite">Presencial</option>
                     </select>
                   </div>
                 </div>
@@ -350,7 +351,7 @@ export function JobPostForm() {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Budget Range
+                        Faixa de Orçamento
                       </p>
                     </div>
                     <p className="text-xl font-bold tracking-tight text-[#3156ff]">
@@ -361,13 +362,13 @@ export function JobPostForm() {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-2">
                       <label htmlFor="budget_min" className="text-xs font-medium text-slate-500">
-                        Minimum
+                        Mínimo
                       </label>
                       <Input
                         id="budget_min"
                         type="number"
                         min="0"
-                        step="100"
+                        step="10"
                         value={formData.budget_min}
                         onChange={(event) =>
                           setFormData((current) => ({
@@ -380,13 +381,13 @@ export function JobPostForm() {
                     </div>
                     <div className="space-y-2">
                       <label htmlFor="budget_max" className="text-xs font-medium text-slate-500">
-                        Maximum
+                        Máximo
                       </label>
                       <Input
                         id="budget_max"
                         type="number"
                         min="0"
-                        step="100"
+                        step="10"
                         value={formData.budget_max}
                         onChange={(event) =>
                           setFormData((current) => ({
@@ -400,15 +401,25 @@ export function JobPostForm() {
                   </div>
 
                   <div className="px-1 pt-1">
-                    <div className="relative h-7">
-                      <div className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-slate-200" />
-                      <div className="absolute left-[26%] right-[27%] top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-[#3156ff]" />
-                      <div className="absolute left-[24%] top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-4 border-[#3156ff] bg-white shadow-sm" />
-                      <div className="absolute right-[25%] top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-4 border-[#3156ff] bg-white shadow-sm" />
+                    <div className="relative h-7 pt-2">
+                      <Slider
+                        min={0}
+                        max={50000}
+                        step={10}
+                        value={[Number(formData.budget_min), Number(formData.budget_max)]}
+                        onValueChange={(values) =>
+                          setFormData((current) => ({
+                            ...current,
+                            budget_min: String((values as number[])[0]),
+                            budget_max: String((values as number[])[1]),
+                          }))
+                        }
+                        className="w-full"
+                      />
                     </div>
                     <div className="mt-1 flex items-center justify-between text-[11px] font-medium text-slate-400">
-                      <span>$1000</span>
-                      <span>$50,000+</span>
+                      <span>R$0</span>
+                      <span>R$50,000+</span>
                     </div>
                   </div>
                 </div>
@@ -419,14 +430,15 @@ export function JobPostForm() {
                     variant="outline"
                     className="h-12 rounded-full border-transparent bg-slate-100 px-7 text-sm font-semibold text-slate-500"
                   >
-                    Save Draft
+                  <Bookmark className="size-4" />
+                    Salvar
                   </Button>
                   <Button
                     type="submit"
                     disabled={isSubmitting}
                     className="h-12 rounded-full bg-[#1f4cff] px-8 text-sm font-semibold text-white shadow-[0_18px_36px_-18px_rgba(31,76,255,0.75)] hover:bg-[#1743ea]"
                   >
-                    {isSubmitting ? "Posting..." : "Post Job"}
+                    {isSubmitting ? "Publicando..." : "Publicar vaga"}
                   </Button>
                 </div>
               </div>

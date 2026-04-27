@@ -109,7 +109,7 @@ export default function Home() {
     guest: <GuestHome />,
     freelancer: (
       <FreelancerHome
-        userEmail={user?.email}
+        userDisplayName={user?.display_name || user?.first_name}
         onViewProposals={() =>
           user?.id && router.push(`/profile/freelancer/${user.id}/proposals`)
         }
@@ -140,7 +140,7 @@ export default function Home() {
     ),
     publisher: (
       <PublisherHome
-        userEmail={user?.email}
+        userDisplayName={user?.display_name || user?.first_name}
         onCreateProject={() => router.push("/jobs/post")}
         onPostJob={() => router.push("/jobs/post")}
         onViewCandidates={() => router.push("/hire")}

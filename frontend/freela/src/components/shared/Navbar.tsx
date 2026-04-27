@@ -8,7 +8,7 @@ import {
   useMotionValueEvent,
   useScroll,
 } from "motion/react";
-import { Bell, ChevronDown, Menu, MessageSquare, User, X } from "lucide-react";
+import { Bell, ChevronDown, Menu, MessageSquare, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getNavLinks } from "@/lib/nav-links";
-import { getGravatarUrl } from "@/lib/gravatar"; // 👈 Importe a função
+import AvatarImage from "../ui/avatar-image";
 import type { UserRole } from "@/types/nav";
 
 const navLinkClassName = "border-b-2 border-transparent pb-1 text-sm font-medium tracking-tight text-slate-500 transition-all duration-300 ease-in-out hover:border-blue-600 hover:text-blue-600";
@@ -50,10 +50,6 @@ export default function Navbar({ role }: NavbarProps) {
         ? `/profile/publisher/${user.id}`
         : "/";
 
-  // 👇 Gera a URL do Gravatar se o usuário tiver email
-  const avatarUrl = user?.email 
-    ? getGravatarUrl(user.email, 64) 
-    : null;
 
   async function handleLogout() {
     await logout();
@@ -168,19 +164,14 @@ export default function Navbar({ role }: NavbarProps) {
                       whileTap={{ scale: 0.97 }}
                       className="hidden items-center gap-1 rounded-full border border-white/35 bg-white/35 p-1 pl-2 text-slate-600 shadow-sm backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/55 hover:text-slate-900 md:flex"
                     >
-                      {/* 👇 SUBSTITUIÇÃO DO AVATAR AQUI */}
+                     
                       <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-200/80 text-slate-600">
-                        {avatarUrl ? (
-                          <Image
-                            src={avatarUrl}
-                            alt="Avatar do usuário"
-                            width={32}
-                            height={32}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <User size={18} />
-                        )}
+                        <AvatarImage 
+                          email={user?.email}
+                          profileImg={user?.profile_img}
+                          size={32}
+                          alt={`Avatar de ${user?.display_name || "usuario"}`}
+                        />
                       </div>
                       <ChevronDown size={16} className="text-slate-500" />
                     </motion.button>
@@ -266,17 +257,12 @@ export default function Navbar({ role }: NavbarProps) {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/45 px-4 py-3 text-sm font-medium text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-slate-900">
-                            {avatarUrl ? (
-                              <Image
-                                src={avatarUrl}
-                                alt="Avatar"
-                                width={20}
-                                height={20}
-                                className="rounded-full"
-                              />
-                            ) : (
-                              <User size={18} />
-                            )}
+                            <AvatarImage
+                              email={user?.email}
+                              profileImg={user?.profile_img}
+                              size={20}
+                              alt={`Avatar de ${user?.display_name || "usuario"}`}
+                            />
                             Perfil
                             <ChevronDown size={16} className="text-slate-500" />
                           </button>

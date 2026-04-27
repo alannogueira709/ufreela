@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Search, Star, UsersRound } from "lucide-react";
 
 import Footer from "@/components/shared/Footer";
 import Loading from "@/components/shared/Loading";
 import Navbar from "@/components/shared/Navbar";
+import AvatarImage from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getFeaturedCandidates } from "@/lib/public-service";
@@ -127,12 +127,12 @@ export default function HirePage() {
                   className="rounded-[30px] bg-white p-6 shadow-[0_24px_70px_-44px_rgba(15,23,42,0.28)]"
                 >
                   <div className="flex items-center gap-4">
-                    <Image
+                    <AvatarImage
                       src={candidate.avatarUrl}
-                      alt={candidate.name}
-                      width={64}
-                      height={64}
-                      className="h-16 w-16 rounded-2xl object-cover"
+                      size={64}
+                      alt={`Avatar de ${candidate.name}`}
+                      className="rounded-2xl"
+                      fallbackClassName="rounded-2xl bg-slate-200 text-slate-600"
                     />
                     <div className="min-w-0">
                       <h2 className="truncate font-heading text-xl font-bold tracking-tight text-slate-950">

@@ -4,7 +4,11 @@ import type { UserRole } from "@/types/nav";
 export interface AuthUser {
   id: string;
   email: string;
+  first_name: string;
+  last_name: string;
+  display_name: string;
   role: UserRole;
+  profile_img: string | null;
 }
 
 export interface LoginPayload {
