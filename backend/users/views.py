@@ -198,12 +198,22 @@ class UserMeView(APIView):
 
     def get(self, request):
         user = request.user
+        first_name = (user.name or "").strip()
+        last_name = (user.last_name or "").strip()
+        display_name = " ".join(filter(None, [first_name, last_name]))
+
+        if not display_name:
+            display_name = (user.email or "").split("@")[0]
+
         return Response(
             {
                 "id": user.id,
                 "email": user.email,
+                "first_name": first_name,
+                "last_name": last_name,
+                "display_name": display_name,
                 "role": user.role.role_name if user.role else None,
-                "profile_img": user.profile_img.url if user.profile_img else None,  
+                "profile_img": user.profile_img.url if user.profile_img else None,
             }
         )
 
