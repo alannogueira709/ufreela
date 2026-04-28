@@ -1,10 +1,12 @@
 import { api } from "@/lib/api";
+import { getAvatarUrl } from "@/lib/avatar";
 import type { Candidate } from "@/types/candidate";
 import type { Job } from "@/types/job";
 import type { Opportunity } from "@/types/opportunity";
 
 interface ApiFreelancer {
   id: string;
+  email: string;
   name: string;
   last_name: string;
   profile_img: string | null;
@@ -164,9 +166,7 @@ function mapFreelancerToCandidate(freelancer: ApiFreelancer): Candidate {
     title: mapProfessionalLevel(freelancer.professional_level),
     hourlyRate: parseNumber(freelancer.hourly_rate, 0),
     rating: parseNumber(freelancer.mean_eval, 0),
-    avatarUrl:
-      resolveMediaUrl(freelancer.profile_img) ||
-      "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=600&q=80",
+    avatarUrl: getAvatarUrl(freelancer.email, freelancer.profile_img, 600),
     profileUrl: `/profile/freelancer/${freelancer.id}`,
   };
 }
