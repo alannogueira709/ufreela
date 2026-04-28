@@ -284,6 +284,7 @@ class FeaturedFreelancersView(APIView):
             payload.append(
                 {
                     "id": str(user.id),
+                    "email": user.email,
                     "name": user.name,
                     "last_name": user.last_name,
                     "profile_img": user.profile_img.url if user.profile_img else None,
