@@ -9,6 +9,7 @@ from .views import (
     ProposalDetailUpdateView,
     PublisherProposalListView,
     SkillListView,
+    SaveOpportunityToggleView,
 )
 
 urlpatterns = [
@@ -39,5 +40,10 @@ urlpatterns = [
         "proposals/<int:proposal_id>/",
         ProposalDetailUpdateView.as_view(),
         name="proposal_detail_update",
+    ),
+    path(
+        "opportunities/save/<int:opportunity_id>/",
+        SaveOpportunityToggleView.as_view(),
+        name="save_opportunity_toggle",
     ),
 ]

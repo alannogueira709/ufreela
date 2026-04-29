@@ -119,3 +119,20 @@ class Proposal(models.Model):
 
     def __str__(self):
         return f"Proposta #{self.proposal_id} — {self.status}"
+
+# ── Vagas Salvas ──────────────────────────────────────────
+
+class SavedOpportunity(models.Model):
+    user = models.ForeignKey(
+        "users.User", on_delete=models.CASCADE, related_name="saved_opportunities",
+    )
+    opportunity = models.ForeignKey(
+        Opportunity, on_delete=models.CASCADE, related_name="saved_by",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "opportunity")
+
+    def __str__(self):
+        return f"{self.user.email} saved {self.opportunity.title}"

@@ -26,11 +26,13 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import {
-  getPublisherProfile,
-  resolveMediaUrl,
-  type PublisherProfileResponse,
-} from "@/lib/public-service";
+import { getApiErrorMessage } from "@/lib/api-errors";
+import { getAvatarUrl } from "@/lib/avatar";
+import { getPublisherProfile } from "@/lib/public-service";
+import type { PublisherProfileResponse } from "@/types/public";
+import { ShareDialog } from "@/components/shared/ShareDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 function StarRating({
   rating,
@@ -103,6 +105,11 @@ export default function PublisherProfilePage() {
   const userId = params?.id;
   const [profile, setProfile] = useState<PublisherProfileResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!userId) {
@@ -155,6 +162,40 @@ export default function PublisherProfilePage() {
       .join("");
   }, [companyName]);
 
+  const handleSaveToggle = async () => {
+    if (!user) {
+      toast.error("Você precisa estar logado para salvar perfis.");
+      return;
+    }
+    if (user.id === userId) {
+      toast.error("Você não pode salvar a si mesmo.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(`${API_URL}/api/users/profile/save/${userId}/`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) throw new Error("Falha ao salvar");
+
+      const data = await res.json();
+      setIsSaved(data.saved);
+      toast.success(data.saved ? "Perfil salvo com sucesso!" : "Perfil removido dos salvos.");
+    } catch (err) {
+      toast.error("Ocorreu um erro ao tentar salvar este perfil.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 antialiased">
@@ -202,17 +243,25 @@ export default function PublisherProfilePage() {
                 }}
               />
               <div className="absolute right-6 top-5 flex gap-2">
-                {[{ icon: Share2, label: "Compartilhar" }, { icon: Bookmark, label: "Salvar" }].map((action) => (
-                  <Button
-                    key={action.label}
-                    size="sm"
-                    variant="outline"
-                    className="h-9 rounded-full border-white/30 bg-white/15 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/25"
-                  >
-                    <action.icon size={13} className="mr-1.5" />
-                    {action.label}
-                  </Button>
-                ))}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsShareOpen(true)}
+                  className="h-9 rounded-full border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
+                >
+                  <Share2 size={13} className="mr-1.5" />
+                  Compartilhar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSaveToggle}
+                  disabled={isSaving}
+                  className={`h-9 rounded-full border-white/30 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30 ${isSaved ? 'bg-white/40' : 'bg-white/20'}`}
+                >
+                  <Bookmark size={13} className={`mr-1.5 ${isSaved ? 'fill-current' : ''}`} />
+                  {isSaved ? "Salvo" : "Salvar"}
+                </Button>
               </div>
             </div>
 
@@ -220,8 +269,8 @@ export default function PublisherProfilePage() {
               <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
                 <div className="relative w-fit">
                   <Avatar className="h-28 w-28 rounded-2xl border-4 border-white shadow-[0_16px_48px_-12px_rgba(15,23,42,0.2)]">
-                    <AvatarImage src={resolveMediaUrl(profile?.profile_img) ?? undefined} />
-                    <AvatarFallback className="rounded-2xl bg-slate-100 text-xl font-bold text-slate-700">
+                    <AvatarImage src={getAvatarUrl(profile?.email, profile?.profile_img)} className="w-full h-full object-cover" />
+                    <AvatarFallback className="rounded-2xl bg-indigo-100 text-xl font-bold text-indigo-700">
                       {initials || "PB"}
                     </AvatarFallback>
                   </Avatar>
@@ -428,6 +477,12 @@ export default function PublisherProfilePage() {
       </main>
 
       <Footer />
+      <ShareDialog 
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        url={typeof window !== "undefined" ? window.location.href : ""}
+        title={`Confira o perfil de ${companyName} na Ufreela!`}
+      />
     </div>
   );
 }

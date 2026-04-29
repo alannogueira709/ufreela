@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from users.models import Freelancer, Publisher
 
-from .models import Category, Opportunity, Proposal, Skill
+from .models import Category, Opportunity, Proposal, Skill, SavedOpportunity
 from .serializers import (
     CategorySerializer,
     OpportunityCreateSerializer,
