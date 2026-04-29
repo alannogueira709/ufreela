@@ -6,6 +6,7 @@ from .views import (
     OpportunityDetailView,
     OpportunityListCreateView,
     OpportunityProposalCreateView,
+    ProposalDetailUpdateView,
     PublisherProposalListView,
     SkillListView,
 )
@@ -33,5 +34,10 @@ urlpatterns = [
         "publishers/me/proposals/",
         PublisherProposalListView.as_view(),
         name="publisher_proposals",
+    ),
+    path(
+        "proposals/<int:proposal_id>/",
+        ProposalDetailUpdateView.as_view(),
+        name="proposal_detail_update",
     ),
 ]

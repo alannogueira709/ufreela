@@ -138,7 +138,7 @@ export function JobDetailsPage() {
         );
       } catch (loadError) {
         setError(
-          getApiErrorMessage(loadError, "Nao foi possivel carregar esta vaga."),
+          getApiErrorMessage(loadError, "Não foi possível carregar esta vaga."),
         );
         setJob(null);
         setRelatedJobs([]);
@@ -161,7 +161,7 @@ export function JobDetailsPage() {
     [job?.title],
   );
 
-  async function handleProposalSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleProposalSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!job) {
@@ -185,7 +185,7 @@ export function JobDetailsPage() {
       setProposalError(
         getApiErrorMessage(
           submitError,
-          "Nao foi possivel enviar sua proposta agora.",
+          "Não foi possível enviar sua proposta agora.",
           ["error", "detail", "proposed_value", "cover_letter"],
         ),
       );
@@ -234,7 +234,7 @@ export function JobDetailsPage() {
           {!isLoading && !error && !job ? (
             <div className="rounded-[32px] border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
               <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
-                Vaga nao encontrada
+                Vaga não encontrada
               </h1>
             </div>
           ) : null}
