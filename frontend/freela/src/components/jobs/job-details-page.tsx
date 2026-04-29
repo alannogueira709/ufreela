@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getApiErrorMessage } from "@/lib/api-errors";
+import { toast } from "sonner";
 import { getOpportunityById, getOpportunities } from "@/lib/job-service";
 import { createProposal } from "@/lib/proposal-service";
 import { useAuth } from "@/contexts/AuthContext";
@@ -115,6 +116,8 @@ export function JobDetailsPage() {
   const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
   const [proposalError, setProposalError] = useState("");
   const [proposalSuccess, setProposalSuccess] = useState("");
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -191,6 +194,36 @@ export function JobDetailsPage() {
       );
     } finally {
       setIsSubmittingProposal(false);
+    }
+  }
+
+  async function handleSaveToggle() {
+    if (!user) {
+      toast.error("Você precisa estar logado para salvar vagas.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(`${API_URL}/api/jobs/opportunities/save/${opportunityId}/`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) throw new Error("Falha ao salvar");
+
+      const data = await res.json();
+      setIsSaved(data.saved);
+      toast.success(data.saved ? "Vaga salva com sucesso!" : "Vaga removida dos salvos.");
+    } catch (err) {
+      toast.error("Ocorreu um erro ao tentar salvar esta vaga.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -398,10 +431,14 @@ export function JobDetailsPage() {
                   )}
                   <Button
                     variant="outline"
-                    className="mt-3 h-12 w-full rounded-full border-slate-200 bg-slate-50 text-sm font-semibold text-slate-600"
+                    onClick={handleSaveToggle}
+                    disabled={isSaving}
+                    className={`mt-3 h-12 w-full rounded-full border-slate-200 text-sm font-semibold transition-colors ${
+                      isSaved ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-slate-50 text-slate-600"
+                    }`}
                   >
-                    <Bookmark className="size-4" />
-                    Salvar Vaga
+                    <Bookmark className={`size-4 mr-2 ${isSaved ? 'fill-current' : ''}`} />
+                    {isSaved ? "Vaga Salva" : "Salvar Vaga"}
                   </Button>
 
                   <div className="mt-6 space-y-4 border-t border-slate-100 pt-6 text-sm">

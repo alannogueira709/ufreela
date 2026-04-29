@@ -21,11 +21,13 @@ import {
   Share2,
   Star,
 } from "lucide-react";
-import {
-  getFreelancerProfile,
-  resolveMediaUrl,
-  type FreelancerProfileResponse,
-} from "@/lib/public-service";
+import { getApiErrorMessage } from "@/lib/api-errors";
+import { getAvatarUrl } from "@/lib/avatar";
+import { getFreelancerProfile } from "@/lib/public-service";
+import type { FreelancerProfileResponse } from "@/types/public";
+import { ShareDialog } from "@/components/shared/ShareDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 function StarRating({
   rating,
@@ -76,9 +78,9 @@ function formatProfessionalLevel(level: string | null | undefined) {
   }
 
   const labels: Record<string, string> = {
-    junior: "Freelancer Junior",
+    junior: "Freelancer Júnior",
     mid: "Freelancer Pleno",
-    senior: "Freelancer Senior",
+    senior: "Freelancer Sênior",
   };
 
   return labels[level.toLowerCase()] ?? "Freelancer";
@@ -112,6 +114,11 @@ export default function FreelancerProfilePage() {
   const userId = params?.id;
   const [profile, setProfile] = useState<FreelancerProfileResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!userId) {
@@ -126,9 +133,11 @@ export default function FreelancerProfilePage() {
         const data = await getFreelancerProfile(userId);
         if (isMounted) {
           setProfile(data);
+          setIsSaved(data.is_saved ?? false);
         }
-      } catch {
+      } catch (err) {
         if (isMounted) {
+          setError(getApiErrorMessage(err));
           setProfile(null);
         }
       } finally {
@@ -163,6 +172,40 @@ export default function FreelancerProfilePage() {
   const rating = Number(profile?.mean_eval ?? 0);
   const hourlyRate = Number(profile?.hourly_rate ?? 0);
   const levelLabel = formatProfessionalLevel(profile?.professional_level);
+
+  const handleSaveToggle = async () => {
+    if (!user) {
+      toast.error("Você precisa estar logado para salvar perfis.");
+      return;
+    }
+    if (user.id === userId) {
+      toast.error("Você não pode salvar a si mesmo.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(`${API_URL}/api/users/profile/save/${userId}/`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) throw new Error("Falha ao salvar");
+
+      const data = await res.json();
+      setIsSaved(data.saved);
+      toast.success(data.saved ? "Perfil salvo com sucesso!" : "Perfil removido dos salvos.");
+    } catch (err) {
+      toast.error("Ocorreu um erro ao tentar salvar este perfil.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -213,17 +256,25 @@ export default function FreelancerProfilePage() {
                 }}
               />
               <div className="absolute right-6 top-5 flex gap-2">
-                {[{ icon: Share2, label: "Compartilhar" }, { icon: Bookmark, label: "Salvar" }].map((action) => (
-                  <Button
-                    key={action.label}
-                    size="sm"
-                    variant="outline"
-                    className="h-9 rounded-full border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
-                  >
-                    <action.icon size={13} className="mr-1.5" />
-                    {action.label}
-                  </Button>
-                ))}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsShareOpen(true)}
+                  className="h-9 rounded-full border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
+                >
+                  <Share2 size={13} className="mr-1.5" />
+                  Compartilhar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSaveToggle}
+                  disabled={isSaving}
+                  className={`h-9 rounded-full border-white/30 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30 ${isSaved ? 'bg-white/40' : 'bg-white/20'}`}
+                >
+                  <Bookmark size={13} className={`mr-1.5 ${isSaved ? 'fill-current' : ''}`} />
+                  {isSaved ? "Salvo" : "Salvar"}
+                </Button>
               </div>
             </div>
 
@@ -231,7 +282,7 @@ export default function FreelancerProfilePage() {
               <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
                 <div className="relative w-fit">
                   <Avatar className="h-28 w-28 rounded-2xl border-4 border-white shadow-[0_16px_48px_-12px_rgba(15,23,42,0.2)]">
-                    <AvatarImage src={resolveMediaUrl(profile?.profile_img) ?? undefined} />
+                    <AvatarImage src={getAvatarUrl(profile?.email, profile?.profile_img)} className="w-full h-full object-cover" />
                     <AvatarFallback className="rounded-2xl bg-blue-100 text-xl font-bold text-blue-700">
                       {initials || "FR"}
                     </AvatarFallback>
@@ -321,14 +372,14 @@ export default function FreelancerProfilePage() {
             />
 
             <EmptySection
-              title="Historico de Trabalho e Reviews"
-              description="O historico detalhado de projetos e avaliacoes ainda nao esta disponivel para este perfil."
+              title="Histórico de Trabalho e Reviews"
+              description="O histórico detalhado de projetos e avaliações ainda não está disponível para este perfil."
               delay={0.23}
             />
 
             <EmptySection
-              title="Educacao"
-              description="As informacoes academicas deste freelancer ainda nao foram cadastradas."
+              title="Educação"
+              description="As informações acadêmicas deste freelancer ainda não foram cadastradas."
               delay={0.28}
             />
           </div>
@@ -341,12 +392,12 @@ export default function FreelancerProfilePage() {
                     {[
                       { label: "Total Faturado", value: "N/D", icon: DollarSign },
                       {
-                        label: "Jobs Concluidos",
+                        label: "Jobs Concluídos",
                         value: String(profile?.finished_jobs ?? 0),
                         icon: CheckCircle,
                       },
                       {
-                        label: "Taxa Hora",
+                        label: "Taxa/hora",
                         value:
                           hourlyRate > 0
                             ? `R$ ${hourlyRate.toFixed(2)}/hr`
@@ -369,13 +420,6 @@ export default function FreelancerProfilePage() {
                       </div>
                     ))}
                   </div>
-
-                  <Separator className="my-6 bg-white/10" />
-
-                  <p className="text-[12px] leading-5 text-slate-400">
-                    Este resumo exibe apenas os dados disponiveis no banco de dados
-                    para o perfil publico.
-                  </p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -390,7 +434,7 @@ export default function FreelancerProfilePage() {
                     {[
                       {
                         icon: CircleDot,
-                        text: "Disponivel para novos projetos",
+                        text: "Disponível para novos projetos",
                         color: "text-emerald-500",
                       },
                       {
@@ -398,7 +442,7 @@ export default function FreelancerProfilePage() {
                         text:
                           hourlyRate > 0
                             ? `Taxa cadastrada: R$ ${hourlyRate.toFixed(2)}/h`
-                            : "Taxa horaria nao informada",
+                            : "Taxa horária não informada",
                         color: "text-blue-500",
                       },
                     ].map((item) => (
@@ -417,19 +461,27 @@ export default function FreelancerProfilePage() {
             <motion.div {...fadeRight(0.24)}>
               <Card className="rounded-3xl border-0 shadow-[0_16px_48px_-16px_rgba(15,23,42,0.07)]">
                 <CardContent className="p-4">
-                  {[
-                    { icon: Share2, label: "Compartilhar Perfil" },
-                    { icon: Bookmark, label: "Salvar Perfil" },
-                    { icon: BarChart3, label: "Ver resumo publico" },
-                  ].map((action) => (
-                    <button
-                      key={action.label}
-                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
-                    >
-                      <action.icon size={15} className="text-blue-600" />
-                      {action.label}
-                    </button>
-                  ))}
+                  <button
+                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                    onClick={() => setIsShareOpen(true)}
+                  >
+                    <Share2 size={15} className="text-blue-600" />
+                    Compartilhar Perfil
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                    onClick={handleSaveToggle}
+                  >
+                    <Bookmark size={15} className="text-blue-600" />
+                    {isSaved ? "Remover dos Salvos" : "Salvar Perfil"}
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                    onClick={() => console.log("Ver resumo")}
+                  >
+                    <BarChart3 size={15} className="text-blue-600" />
+                    Ver resumo público
+                  </button>
                 </CardContent>
               </Card>
             </motion.div>
@@ -438,6 +490,12 @@ export default function FreelancerProfilePage() {
       </main>
 
       <Footer />
+      <ShareDialog 
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        url={typeof window !== "undefined" ? window.location.href : ""}
+        title={`Confira o perfil de ${fullName} na Ufreela!`}
+      />
     </div>
   );
 }

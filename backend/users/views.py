@@ -17,7 +17,7 @@ from users.domain.exceptions import ConflictError, ValidationError
 from users.infrastructure.repositories.django_user_repository import \
     DjangoUserRepository
 
-from .models import Freelancer, Publisher, User
+from .models import Freelancer, Publisher, User, SavedProfile
 from .serializers import (CustomTokenObtainPairSerializer,
                           FreelancerSkillUpdateSerializer,
                           OnboardingSerializer, RegisterSerializer,

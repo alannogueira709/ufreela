@@ -14,6 +14,7 @@ const inter = Inter({
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "uFreela | A Plataforma de Oportunidades da Comunidade",
@@ -45,6 +46,7 @@ export default function RootLayout({
         <QueryProvider>
           <AuthProvider>{children}</AuthProvider>
         </QueryProvider>
+        <Toaster />
       </body>
     </html>
   );

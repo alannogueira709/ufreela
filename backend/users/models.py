@@ -140,4 +140,16 @@ class Publisher(models.Model):
     def __str__(self):
         return f"Publisher: {self.company_name or self.user_id.email}"
 
+# ── Itens Salvos ──────────────────────────────────────────
+
+class SavedProfile(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="saved_profiles")
+    saved_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="saved_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "saved_user")
+
+    def __str__(self):
+        return f"{self.user.email} saved {self.saved_user.email}"
 
