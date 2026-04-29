@@ -74,6 +74,7 @@ export default function PublisherOpportunitiesPage() {
   const [jobs, setJobs] = useState<Opportunity[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("ativas");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -166,10 +167,10 @@ export default function PublisherOpportunitiesPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
               <h1 className="font-heading text-5xl font-bold tracking-tight text-slate-950">
-                My Jobs
+                Meus Projetos
               </h1>
               <p className="text-base text-slate-500">
-                Manage your ongoing opportunities and published milestones.
+                Gerencie suas oportunidades e propostas recebidas.
               </p>
             </div>
 
@@ -230,7 +231,7 @@ export default function PublisherOpportunitiesPage() {
 
               <div className="rounded-[32px] bg-[#f0f2f6] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Efficiency Pulse
+                  Eficiência do perfil
                 </p>
                 <div className="mt-4 space-y-3">
                   <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
@@ -238,7 +239,7 @@ export default function PublisherOpportunitiesPage() {
                       <Clock3 className="size-4 text-[#4962ff]" />
                       <div>
                         <p className="text-sm font-semibold text-slate-800">
-                          {activeJobs.length} abertas
+                          {activeJobs.length} {activeJobs.length === 1 ? "vaga" : "vagas"} {activeJobs.length === 1 ? "ativa" : "ativas"}
                         </p>
                         <p className="text-xs text-slate-400">Oportunidades recebendo propostas</p>
                       </div>
@@ -249,7 +250,7 @@ export default function PublisherOpportunitiesPage() {
                       <FileText className="size-4 text-[#4962ff]" />
                       <div>
                         <p className="text-sm font-semibold text-slate-800">
-                          {proposals.length} propostas
+                          {proposals.length} {proposals.length === 1 ? "proposta" : "propostas"} {proposals.length === 1 ? "recebida" : "recebidas"}
                         </p>
                         <p className="text-xs text-slate-400">Recebidas nas suas vagas</p>
                       </div>
@@ -261,150 +262,255 @@ export default function PublisherOpportunitiesPage() {
 
             <section className="space-y-8">
               <div className="flex flex-wrap items-center gap-6 border-b border-slate-200 pb-2 text-sm font-semibold text-slate-400">
-                <button className="border-b-2 border-[#3d5afe] pb-3 text-[#3d5afe]">
-                  Active ({activeJobs.length})
+                <button 
+                  onClick={() => setActiveTab("ativas")}
+                  className={activeTab === "ativas" ? "border-b-2 border-[#3d5afe] pb-3 text-[#3d5afe]" : "pb-3 transition-colors hover:text-slate-600"}
+                >
+                  Ativas ({activeJobs.length})
                 </button>
-                <button className="pb-3">Propostas ({proposals.length})</button>
-                <button className="pb-3">Completed ({closedJobs.length})</button>
-                <button className="pb-3">Invoices</button>
+                <button 
+                  onClick={() => setActiveTab("propostas")}
+                  className={activeTab === "propostas" ? "border-b-2 border-[#3d5afe] pb-3 text-[#3d5afe]" : "pb-3 transition-colors hover:text-slate-600"}
+                >
+                  Propostas ({proposals.length})
+                </button>
+                <button 
+                  onClick={() => setActiveTab("finalizadas")}
+                  className={activeTab === "finalizadas" ? "border-b-2 border-[#3d5afe] pb-3 text-[#3d5afe]" : "pb-3 transition-colors hover:text-slate-600"}
+                >
+                  Finalizadas ({closedJobs.length})
+                </button>
+                <button 
+                  onClick={() => setActiveTab("registros")}
+                  className={activeTab === "registros" ? "border-b-2 border-[#3d5afe] pb-3 text-[#3d5afe]" : "pb-3 transition-colors hover:text-slate-600"}
+                >
+                  Registros
+                </button>
               </div>
 
-              <div className="space-y-4">
-                <h2 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
-                  Active Contracts
-                </h2>
-
-                {activeJobs.length > 0 ? (
-                  activeJobs.map((job) => {
-                    const estimated = estimateOpportunityValue(job);
-                    const jobProposals = proposalsByOpportunity[job.opportunity_id] ?? [];
-
-                    return (
-                      <article
-                        key={job.opportunity_id}
-                        className="rounded-[30px] bg-white px-6 py-5 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.18)]"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-4">
-                            <div className="mt-1 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef2ff] text-[#4461ff]">
-                              <BriefcaseBusiness className="size-5" />
-                            </div>
-                            <div>
-                              <p className="text-lg font-semibold text-slate-900">
-                                {job.title}
-                              </p>
-                              <p className="text-sm text-slate-500">
-                                {job.publisher.company_name || "Client account"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${statusTone(job)}`}>
-                              {statusLabel(job)}
-                            </span>
-                            <button className="text-slate-400">
-                              <MoreVertical className="size-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_170px]">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                              Propostas recebidas
-                            </p>
-                            <p className="mt-1 text-sm font-semibold text-slate-800">
-                              {jobProposals.length} candidato(s)
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              {jobProposals.filter((proposal) => proposal.status === "pending").length} pendente(s)
-                            </p>
-                          </div>
-                          <div className="sm:text-right">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                              Budget
-                            </p>
-                            <p className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
-                              {formatCurrency(estimated)}
-                            </p>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })
-                ) : (
-                  <div className="rounded-[30px] border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500 shadow-sm">
-                    Nenhum job encontrado para este publisher.
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-4">
+              {activeTab === "ativas" && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <h2 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
-                    Recent Proposals
+                    Projetos ativos
                   </h2>
-                  <Link href="/jobs" className="text-sm font-semibold text-[#3d5afe]">
-                    View All Proposals
-                  </Link>
-                </div>
 
-                <div className="rounded-[30px] bg-white p-4 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.18)]">
-                  <div className="space-y-2">
-                    {proposals.slice(0, 3).map((proposal, index) => {
-                      const job = {
-                        ...proposal.opportunity,
-                        budget_min: proposal.proposed_value,
-                        budget_max: proposal.proposed_value,
-                        created_at: proposal.created_at,
-                      };
+                  {activeJobs.length > 0 ? (
+                    activeJobs.map((job) => {
+                      const estimated = estimateOpportunityValue(job);
+                      const jobProposals = proposalsByOpportunity[job.opportunity_id] ?? [];
 
                       return (
-                      <div
-                        key={proposal.proposal_id}
-                        className="flex flex-col gap-3 rounded-2xl px-3 py-4 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eef2ff] text-[#4962ff]">
-                            <FileText className="size-4" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">
-                              {`${proposal.freelancer.name} ${proposal.freelancer.last_name}`.trim() || "Freelancer"}
-                            </p>
-                            <p className="text-xs text-slate-400">
-                              Submitted {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(job.created_at))} • Bid: {formatCurrency(estimateOpportunityValue(job))}
-                            </p>
-                          </div>
-                        </div>
+                        <article
+                          key={job.opportunity_id}
+                          className="rounded-[30px] bg-white px-6 py-5 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.18)]"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-4">
+                              <div className="mt-1 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef2ff] text-[#4461ff]">
+                                <BriefcaseBusiness className="size-5" />
+                              </div>
+                              <div>
+                                <p className="text-lg font-semibold text-slate-900">
+                                  {job.title}
+                                </p>
+                                <p className="text-sm text-slate-500">
+                                  {job.publisher.company_name || "Client account"}
+                                </p>
+                              </div>
+                            </div>
 
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <span className={`text-xs font-semibold ${
-                            index === 0
-                              ? "text-orange-500"
-                              : index === 1
-                                ? "text-blue-500"
-                                : "text-slate-400"
-                          }`}>
-                            {index === 0 ? "• Interviewing" : index === 1 ? "• Under Review" : "• Draft"}
-                          </span>
-                          <Link href={`/jobs/${proposal.opportunity.opportunity_id}`}>
-                            <Button
-                              variant="outline"
-                              className="h-9 rounded-full border-slate-200 bg-white px-4 text-xs font-semibold text-[#3d5afe]"
-                            >
-                              <Eye className="size-3.5" />
-                              View Detail
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${statusTone(job)}`}>
+                                {statusLabel(job)}
+                              </span>
+                              <button className="text-slate-400">
+                                <MoreVertical className="size-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_170px]">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                Propostas recebidas
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-800">
+                                {jobProposals.length} candidato(s)
+                              </p>
+                              <p className="mt-1 text-xs text-slate-400">
+                                {jobProposals.filter((proposal) => proposal.status === "pending").length} pendente(s)
+                              </p>
+                            </div>
+                            <div className="sm:text-right">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                Orçamento
+                              </p>
+                              <p className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
+                                {formatCurrency(estimated)}
+                              </p>
+                            </div>
+                          </div>
+                        </article>
                       );
-                    })}
+                    })
+                  ) : (
+                    <div className="rounded-[30px] border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500 shadow-sm">
+                      Nenhum projeto ativo encontrado.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "finalizadas" && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <h2 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
+                    Projetos finalizados
+                  </h2>
+
+                  {closedJobs.length > 0 ? (
+                    closedJobs.map((job) => {
+                      const estimated = estimateOpportunityValue(job);
+                      const jobProposals = proposalsByOpportunity[job.opportunity_id] ?? [];
+
+                      return (
+                        <article
+                          key={job.opportunity_id}
+                          className="rounded-[30px] bg-white px-6 py-5 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.18)]"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-4">
+                              <div className="mt-1 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f8fafc] text-slate-400">
+                                <BriefcaseBusiness className="size-5" />
+                              </div>
+                              <div>
+                                <p className="text-lg font-semibold text-slate-900">
+                                  {job.title}
+                                </p>
+                                <p className="text-sm text-slate-500">
+                                  {job.publisher.company_name || "Client account"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${statusTone(job)}`}>
+                                {statusLabel(job)}
+                              </span>
+                              <button className="text-slate-400">
+                                <MoreVertical className="size-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_170px]">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                Propostas recebidas
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-800">
+                                {jobProposals.length} candidato(s)
+                              </p>
+                              <p className="mt-1 text-xs text-slate-400">
+                                {jobProposals.filter((proposal) => proposal.status === "accepted").length} aceita(s)
+                              </p>
+                            </div>
+                            <div className="sm:text-right">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                Orçamento
+                              </p>
+                              <p className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
+                                {formatCurrency(estimated)}
+                              </p>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-[30px] border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500 shadow-sm">
+                      Nenhum projeto finalizado encontrado.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "propostas" && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-center justify-between gap-4">
+                    <h2 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
+                      Propostas recebidas
+                    </h2>
+                  </div>
+
+                  <div className="rounded-[30px] bg-white p-4 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.18)]">
+                    <div className="space-y-2">
+                      {proposals.length > 0 ? (
+                        proposals.map((proposal) => {
+                          return (
+                          <div
+                            key={proposal.proposal_id}
+                            className="flex flex-col gap-3 rounded-2xl px-3 py-4 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between border border-transparent hover:border-slate-100"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eef2ff] text-[#4962ff]">
+                                <FileText className="size-4" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800">
+                                  {`${proposal.freelancer.name} ${proposal.freelancer.last_name}`.trim() || "Freelancer"}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Vaga: <Link href={`/jobs/${proposal.opportunity.opportunity_id}`} className="hover:underline">{proposal.opportunity.title}</Link>
+                                </p>
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                  Enviada em {new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(proposal.created_at))} • Proposta: {formatCurrency(Number(proposal.proposed_value))}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 sm:gap-4 mt-2 sm:mt-0">
+                              <span className={`text-xs font-semibold uppercase tracking-wider ${
+                                proposal.status === "accepted"
+                                  ? "text-emerald-600"
+                                  : proposal.status === "rejected"
+                                    ? "text-red-500"
+                                    : "text-amber-500"
+                              }`}>
+                                • {proposal.status === "accepted" ? "Aceita" : proposal.status === "rejected" ? "Recusada" : "Pendente"}
+                              </span>
+                              <Link href={`/proposals/${proposal.proposal_id}`}>
+                                <Button
+                                  variant="outline"
+                                  className="h-9 rounded-full border-slate-200 bg-white px-4 text-xs font-semibold text-[#3d5afe] hover:bg-blue-50 hover:text-blue-700"
+                                >
+                                  <Eye className="mr-1.5 size-3.5" />
+                                  Ver Detalhes
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                          );
+                        })
+                      ) : (
+                        <div className="py-8 text-center text-sm text-slate-500">
+                          Nenhuma proposta recebida ainda.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {activeTab === "registros" && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <h2 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
+                    Registros
+                  </h2>
+                  <div className="rounded-[30px] border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500 shadow-sm">
+                    Ainda não há registros disponíveis para os seus contratos.
+                  </div>
+                </div>
+              )}
             </section>
           </div>
         </section>

@@ -118,6 +118,17 @@ class ProposalCreateSerializer(serializers.Serializer):
         )
 
 
+class ProposalStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Proposal
+        fields = ["status"]
+
+    def validate_status(self, value):
+        if value not in [Proposal.Status.ACCEPTED, Proposal.Status.REJECTED]:
+            raise serializers.ValidationError("Status must be accepted or rejected.")
+        return value
+
+
 class OpportunityCreateSerializer(serializers.Serializer):
     category_id = serializers.IntegerField(required=False, allow_null=True)
     skill_ids = serializers.ListField(

@@ -13,8 +13,12 @@ from .serializers import (
     OpportunityListSerializer,
     ProposalCreateSerializer,
     ProposalSerializer,
+    ProposalStatusUpdateSerializer,
     SkillSerializer,
 )
+from finances.models import Contract
+from django.utils import timezone
+
 
 
 def _is_int_like(value: str | None) -> bool:
@@ -275,3 +279,80 @@ class PublisherProposalListView(APIView):
         )
         serializer = ProposalSerializer(proposals, many=True)
         return Response(serializer.data)
+
+
+class ProposalDetailUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_proposal_or_404(self, proposal_id, user):
+        try:
+            proposal = Proposal.objects.select_related(
+                "opportunity__publisher", "freelancer__user_id"
+            ).get(pk=proposal_id)
+        except Proposal.DoesNotExist:
+            return None, Response(
+                {"error": "Proposta não encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Allow if user is the freelancer who made the proposal, or the publisher of the opportunity
+        is_owner_freelancer = hasattr(user, "freelancer_profile") and user.freelancer_profile == proposal.freelancer
+        is_owner_publisher = hasattr(user, "publisher_profile") and user.publisher_profile == proposal.opportunity.publisher
+
+        if not (is_owner_freelancer or is_owner_publisher):
+            return None, Response(
+                {"error": "Sem permissão para acessar esta proposta."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+            
+        return proposal, None
+
+    def get(self, request, proposal_id: int):
+        proposal, error_response = self.get_proposal_or_404(proposal_id, request.user)
+        if error_response:
+            return error_response
+
+        serializer = ProposalSerializer(proposal)
+        return Response(serializer.data)
+
+    def patch(self, request, proposal_id: int):
+        if not getattr(request.user, "role", None) or request.user.role.role_name != "publisher":
+            return Response(
+                {"error": "Apenas publishers podem atualizar propostas."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        proposal, error_response = self.get_proposal_or_404(proposal_id, request.user)
+        if error_response:
+            return error_response
+
+        # Verify that the user is the publisher of this opportunity
+        if not hasattr(request.user, "publisher_profile") or request.user.publisher_profile != proposal.opportunity.publisher:
+            return Response(
+                {"error": "Apenas o criador da oportunidade pode atualizar as propostas relacionadas."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if proposal.status != Proposal.Status.PENDING:
+            return Response(
+                {"error": "Apenas propostas pendentes podem ser alteradas."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ProposalStatusUpdateSerializer(proposal, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        new_status = serializer.validated_data.get('status')
+        updated_proposal = serializer.save()
+
+        if new_status == Proposal.Status.ACCEPTED:
+            # Create a contract automatically
+            Contract.objects.create(
+                proposal=updated_proposal,
+                start_date=timezone.now().date(),
+                total_value=updated_proposal.proposed_value,
+                status=Contract.Status.ACTIVE
+            )
+
+        response_serializer = ProposalSerializer(updated_proposal)
+        return Response(response_serializer.data)

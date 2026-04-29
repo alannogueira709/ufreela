@@ -24,3 +24,18 @@ export async function getMyPublisherProposals() {
   const response = await api.get<Proposal[]>("/publishers/me/proposals/");
   return response.data;
 }
+
+export async function getProposalById(proposalId: string | number) {
+  const response = await api.get<Proposal>(`/proposals/${proposalId}/`);
+  return response.data;
+}
+
+export async function updateProposalStatus(
+  proposalId: string | number,
+  status: "accepted" | "rejected"
+) {
+  const response = await api.patch<Proposal>(`/proposals/${proposalId}/`, {
+    status,
+  });
+  return response.data;
+}

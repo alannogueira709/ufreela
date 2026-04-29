@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { motion } from "motion/react";
+import Link from "next/link";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -198,9 +199,10 @@ function ProposalPreviewCard({
           </div>
         ) : (
           proposals.map((proposal) => (
-            <div
+            <Link
               key={proposal.id}
-              className="rounded-[1.6rem] border border-slate-200 bg-white p-4"
+              href={`/proposals/${proposal.id}`}
+              className="block rounded-[1.6rem] border border-slate-200 bg-white p-4 transition-colors hover:border-blue-200 hover:bg-blue-50/50"
             >
               <div className="flex items-center gap-3">
                 <Avatar className={`bg-${proposal.avatarColor}-100 text-${proposal.avatarColor}-700`}>
@@ -227,7 +229,7 @@ function ProposalPreviewCard({
                   </p>
                 </div>
               </div>
-            </div>
+            </Link>
           ))
         )}
       </CardContent>
