@@ -38,6 +38,7 @@ class OpportunityListSerializer(serializers.ModelSerializer):
             "status",
             "budget_min",
             "budget_max",
+            "deadline",
             "created_at",
             "updated_at",
             "publisher",
@@ -159,6 +160,10 @@ class OpportunityCreateSerializer(serializers.Serializer):
     budget_max = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    deadline = serializers.DateField(
         required=False,
         allow_null=True,
     )

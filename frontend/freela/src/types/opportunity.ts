@@ -25,6 +25,7 @@ export interface Opportunity {
   status: string;
   budget_min: string | null;
   budget_max: string | null;
+  deadline: string | null;
   created_at: string;
   updated_at: string;
   publisher: OpportunityPublisher;
@@ -51,5 +52,6 @@ export interface CreateOpportunityPayload {
   work_modality?: string;
   budget_min?: number;
   budget_max?: number;
+  deadline?: string;
   status?: string;
 }

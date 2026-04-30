@@ -20,6 +20,8 @@ backend/media/
 **/*.webp
 **/*.svg
 
+.codex
+
 
 bruno_opportunities_mock.json
 

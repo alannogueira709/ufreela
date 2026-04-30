@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { motion } from "motion/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,12 +20,14 @@ import {
   Clock,
   DollarSign,
   Share2,
+  Settings, 
   Star,
+  Pencil,
 } from "lucide-react";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { getAvatarUrl } from "@/lib/avatar";
 import { getFreelancerProfile } from "@/lib/public-service";
-import type { FreelancerProfileResponse } from "@/types/public";
+import type { FreelancerProfileResponse } from "@/lib/public-service";
 import { ShareDialog } from "@/components/shared/ShareDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -137,7 +140,7 @@ export default function FreelancerProfilePage() {
         }
       } catch (err) {
         if (isMounted) {
-          setError(getApiErrorMessage(err));
+          setError(getApiErrorMessage(err, "Erro ao carregar perfil"));
           setProfile(null);
         }
       } finally {
@@ -172,6 +175,7 @@ export default function FreelancerProfilePage() {
   const rating = Number(profile?.mean_eval ?? 0);
   const hourlyRate = Number(profile?.hourly_rate ?? 0);
   const levelLabel = formatProfessionalLevel(profile?.professional_level);
+  const isOwnProfile = !!user && user.id === userId;
 
   const handleSaveToggle = async () => {
     if (!user) {
@@ -251,30 +255,41 @@ export default function FreelancerProfilePage() {
               <div
                 className="absolute inset-0 opacity-10"
                 style={{
-                  backgroundImage:
-                    "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+                  background: 'linear-gradient(0deg,rgba(255, 255, 255, 1) 0%, rgba(214, 220, 255, 1) 47%, rgba(138, 185, 252, 1) 100%)',
                 }}
-              />
+              />  
               <div className="absolute right-6 top-5 flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsShareOpen(true)}
-                  className="h-9 rounded-full border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
-                >
-                  <Share2 size={13} className="mr-1.5" />
-                  Compartilhar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSaveToggle}
-                  disabled={isSaving}
-                  className={`h-9 rounded-full border-white/30 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30 ${isSaved ? 'bg-white/40' : 'bg-white/20'}`}
-                >
-                  <Bookmark size={13} className={`mr-1.5 ${isSaved ? 'fill-current' : ''}`} />
-                  {isSaved ? "Salvo" : "Salvar"}
-                </Button>
+                {isOwnProfile ? (
+                  <Link
+                    href={`/edit-profile/${userId}`}
+                    className="inline-flex h-9 items-center gap-2 rounded-full border border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+                  >
+                    <Pencil size={13} />
+                    Editar perfil
+                  </Link>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsShareOpen(true)}
+                      className="h-9 rounded-full border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
+                    >
+                      <Share2 size={13} className="mr-1.5" />
+                      Compartilhar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSaveToggle}
+                      disabled={isSaving}
+                      className={`h-9 rounded-full border-white/30 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30 ${isSaved ? 'bg-white/40' : 'bg-white/20'}`}
+                    >
+                      <Bookmark size={13} className={`mr-1.5 ${isSaved ? 'fill-current' : ''}`} />
+                      {isSaved ? "Salvo" : "Salvar"}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -311,15 +326,27 @@ export default function FreelancerProfilePage() {
                 </div>
 
                 <div className="flex gap-2.5 pb-1">
-                  <Button
-                    variant="outline"
-                    className="h-11 rounded-full border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                  >
-                    Contato
-                  </Button>
-                  <Button className="h-11 rounded-full bg-blue-600 px-7 text-sm font-semibold text-white shadow-[0_8px_28px_-8px_rgba(37,99,235,.5)] hover:bg-blue-700">
-                    {`Contratar ${fullName.split(" ")[0] ?? "Freelancer"}`}
-                  </Button>
+                  {isOwnProfile ? (
+                    <Link
+                      href="/settings"
+                      className="inline-flex h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
+                    >
+                      <Settings size={16} />
+                      Configurações
+                    </Link>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        className="h-11 rounded-full border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        Contato
+                      </Button>
+                      <Button className="h-11 rounded-full bg-blue-600 px-7 text-sm font-semibold text-white shadow-[0_8px_28px_-8px_rgba(37,99,235,.5)] hover:bg-blue-700">
+                        {`Contratar ${fullName.split(" ")[0] ?? "Freelancer"}`}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -458,33 +485,35 @@ export default function FreelancerProfilePage() {
               </Card>
             </motion.div>
 
-            <motion.div {...fadeRight(0.24)}>
-              <Card className="rounded-3xl border-0 shadow-[0_16px_48px_-16px_rgba(15,23,42,0.07)]">
-                <CardContent className="p-4">
-                  <button
-                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
-                    onClick={() => setIsShareOpen(true)}
-                  >
-                    <Share2 size={15} className="text-blue-600" />
-                    Compartilhar Perfil
-                  </button>
-                  <button
-                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
-                    onClick={handleSaveToggle}
-                  >
-                    <Bookmark size={15} className="text-blue-600" />
-                    {isSaved ? "Remover dos Salvos" : "Salvar Perfil"}
-                  </button>
-                  <button
-                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
-                    onClick={() => console.log("Ver resumo")}
-                  >
-                    <BarChart3 size={15} className="text-blue-600" />
-                    Ver resumo público
-                  </button>
-                </CardContent>
-              </Card>
-            </motion.div>
+            {!isOwnProfile && (
+              <motion.div {...fadeRight(0.24)}>
+                <Card className="rounded-3xl border-0 shadow-[0_16px_48px_-16px_rgba(15,23,42,0.07)]">
+                  <CardContent className="p-4">
+                    <button
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                      onClick={() => setIsShareOpen(true)}
+                    >
+                      <Share2 size={15} className="text-blue-600" />
+                      Compartilhar Perfil
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                      onClick={handleSaveToggle}
+                    >
+                      <Bookmark size={15} className="text-blue-600" />
+                      {isSaved ? "Remover dos Salvos" : "Salvar Perfil"}
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                      onClick={() => console.log("Ver resumo")}
+                    >
+                      <BarChart3 size={15} className="text-blue-600" />
+                      Ver resumo público
+                    </button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </div>
         </div>
       </main>

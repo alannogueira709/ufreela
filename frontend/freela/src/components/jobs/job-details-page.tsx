@@ -11,9 +11,8 @@ import {
   CheckCircle2,
   CircleDollarSign,
   Clock3,
-  MapPin,
-  ShieldCheck,
   Star,
+  User,
 } from "lucide-react";
 
 import Loading from "@/components/shared/Loading";
@@ -293,19 +292,6 @@ export function JobDetailsPage() {
                   </div>
                 </div>
 
-                <div className={`relative overflow-hidden rounded-[30px] bg-gradient-to-br ${palette.shell} p-3 shadow-[0_30px_90px_-44px_rgba(15,23,42,0.55)]`}>
-                  <div className={`relative h-[250px] rounded-[24px] bg-gradient-to-br ${palette.panel} sm:h-[320px]`}>
-                    <div className="absolute inset-y-0 left-[32%] w-[10px] bg-slate-950/65 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]" />
-                    <div className="absolute inset-y-0 right-[28%] w-[2px] bg-white/20" />
-                    <div className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-[8px] border-slate-950/70 bg-slate-950/10 shadow-[0_0_0_10px_rgba(255,255,255,0.06)] sm:h-36 sm:w-36" />
-                    <div className={`absolute left-[30%] top-6 h-6 w-6 rounded-sm ${palette.accent}`} />
-                    <div className={`absolute bottom-6 right-[23%] h-8 w-8 rounded-sm ${palette.accent}`} />
-                    <div className="absolute bottom-8 left-[31%] h-12 w-2 rounded-full bg-slate-950/60" />
-                    <div className="absolute top-9 left-[31%] h-12 w-2 rounded-full bg-slate-950/60" />
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.25),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_100%)]" />
-                  </div>
-                </div>
-
                 <div className="space-y-4">
                   <h2 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
                     Sobre o projeto
@@ -313,11 +299,6 @@ export function JobDetailsPage() {
                   <div className="space-y-5 text-[15px] leading-8 text-slate-600">
                     <p>
                       {job.description}
-                    </p>
-                    <p>
-                      The ideal candidate should feel comfortable owning a focused
-                      workstream, collaborating closely with stakeholders and
-                      shipping polished deliverables with clarity and pace.
                     </p>
                   </div>
                 </div>
@@ -443,13 +424,11 @@ export function JobDetailsPage() {
 
                   <div className="mt-6 space-y-4 border-t border-slate-100 pt-6 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-slate-400">Project Length</span>
+                      <span className="text-slate-400">Project Deadline</span>
                       <span className="font-semibold text-slate-700">
-                        {job.work_modality === "onsite"
-                          ? "3-4 Months"
-                          : job.work_modality === "hybrid"
-                            ? "2-3 Months"
-                            : "Flexible"}
+                        {job.deadline
+                          ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(job.deadline + "T00:00:00"))
+                          : "Não definido"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
@@ -463,7 +442,7 @@ export function JobDetailsPage() {
 
                 <div className="rounded-[30px] bg-white p-6 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.24)]">
                   <h3 className="font-heading text-lg font-bold tracking-tight text-slate-950">
-                    About the Client
+                    Sobre o Contratante
                   </h3>
                   <div className="mt-4 space-y-4">
                     <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -475,20 +454,14 @@ export function JobDetailsPage() {
                       <span className="font-semibold text-slate-700">4.9 of 12 reviews</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-slate-500">
-                      <MapPin className="size-4 text-slate-400" />
-                      London, United Kingdom
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-500">
-                      <CircleDollarSign className="size-4 text-slate-400" />
-                      250k+ total spent
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-blue-600">
-                      <ShieldCheck className="size-4" />
-                      Payment verified
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-500">
                       <Building2 className="size-4 text-slate-400" />
                       {job.publisher.company_name || "Verified client"}
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-slate-500">
+                      <Link href={`/profile/${job.publisher.id}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700">
+                        <User className="size-4" />
+                        Ver perfil
+                      </Link>
                     </div>
                   </div>
                 </div>

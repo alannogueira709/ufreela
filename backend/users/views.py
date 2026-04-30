@@ -396,3 +396,49 @@ class FreelancerProfileView(APIView):
                 ],
             }
         )
+
+
+class SaveProfileToggleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, user_id: str):
+        try:
+            target_user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Usuário não encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if target_user == request.user:
+            return Response(
+                {"error": "Você não pode salvar o seu próprio perfil."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        saved, created = SavedProfile.objects.get_or_create(
+            user=request.user,
+            saved_user=target_user,
+        )
+
+        if not created:
+            saved.delete()
+            return Response({"saved": False}, status=status.HTTP_200_OK)
+
+        return Response({"saved": True}, status=status.HTTP_201_CREATED)
+
+    def get(self, request, user_id: str):
+        try:
+            target_user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Usuário não encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        is_saved = SavedProfile.objects.filter(
+            user=request.user,
+            saved_user=target_user,
+        ).exists()
+
+        return Response({"saved": is_saved}, status=status.HTTP_200_OK)

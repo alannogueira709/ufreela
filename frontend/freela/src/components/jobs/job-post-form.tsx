@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bookmark, Info, Minus, Plus } from "lucide-react";
+import { Bookmark, CalendarIcon, Info, Minus, Plus } from "lucide-react";
 
 import Loading from "@/components/shared/Loading";
 import Footer from "@/components/shared/Footer";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import {
   createOpportunity,
@@ -29,6 +31,7 @@ const initialForm = {
   work_modality: "",
   budget_min: "5000",
   budget_max: "12500",
+  deadline: undefined as Date | undefined,
 };
 
 function mapRole(role: UserRole | undefined) {
@@ -57,6 +60,69 @@ export function JobPostForm() {
   const [isLoadingMeta, setIsLoadingMeta] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [activeFormats, setActiveFormats] = useState<Set<"bold" | "italic" | "underline">>(new Set());
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+
+  const FORMAT_MARKERS = {
+    bold: "**",
+    italic: "*",
+    underline: "__",
+  } as const;
+
+  function applyFormat(format: "bold" | "italic" | "underline") {
+    const textarea = descriptionRef.current;
+    if (!textarea) return;
+
+    const marker = FORMAT_MARKERS[format];
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+    const selected = value.slice(start, end);
+    const before = value.slice(start - marker.length, start);
+    const after = value.slice(end, end + marker.length);
+    if (before === marker && after === marker) {
+      const newValue =
+        value.slice(0, start - marker.length) +
+        selected +
+        value.slice(end + marker.length);
+      setFormData((c) => ({ ...c, description: newValue }));
+      requestAnimationFrame(() => {
+        textarea.selectionStart = start - marker.length;
+        textarea.selectionEnd = end - marker.length;
+        textarea.focus();
+      });
+      return;
+    }
+
+    const wrapped = `${marker}${selected}${marker}`;
+    const newValue = value.slice(0, start) + wrapped + value.slice(end);
+    setFormData((c) => ({ ...c, description: newValue }));
+    requestAnimationFrame(() => {
+      if (selected.length > 0) {
+        textarea.selectionStart = start;
+        textarea.selectionEnd = start + wrapped.length;
+      } else {
+        textarea.selectionStart = start + marker.length;
+        textarea.selectionEnd = start + marker.length;
+      }
+      textarea.focus();
+    });
+  }
+
+  function syncActiveFormats() {
+    const textarea = descriptionRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+    const next = new Set<"bold" | "italic" | "underline">();
+    (Object.entries(FORMAT_MARKERS) as [keyof typeof FORMAT_MARKERS, string][]).forEach(([format, marker]) => {
+      const before = value.slice(start - marker.length, start);
+      const after = value.slice(end, end + marker.length);
+      if (before === marker && after === marker) next.add(format);
+    });
+    setActiveFormats(next);
+  }
 
   useEffect(() => {
     const loadMeta = async () => {
@@ -123,6 +189,7 @@ export function JobPostForm() {
         work_modality: formData.work_modality || undefined,
         budget_min: formData.budget_min ? Number(formData.budget_min) : undefined,
         budget_max: formData.budget_max ? Number(formData.budget_max) : undefined,
+        deadline: formData.deadline ? formData.deadline.toISOString().slice(0, 10) : undefined,
       });
 
       router.push(`/jobs/${created.opportunity_id}`);
@@ -209,7 +276,7 @@ export function JobPostForm() {
                       }))
                     }
                     className="h-14 rounded-2xl border-transparent bg-slate-100 px-5 text-base shadow-none placeholder:text-slate-400"
-                    placeholder="e.g. Sustainable Urban Landscape Design for Mid-Rise"
+                    placeholder="Ex.: Desenvolvimento Web Full Stack"
                   />
                 </div>
 
@@ -229,7 +296,7 @@ export function JobPostForm() {
                       }
                       className="h-14 w-full rounded-2xl border border-transparent bg-slate-100 px-4 text-sm text-slate-700 outline-none focus:border-blue-300"
                     >
-                      <option value="">Select a category</option>
+                      <option value="">Selecione uma categoria</option>
                       {categories.map((category) => (
                         <option key={category.category_id} value={category.category_id}>
                           {category.category_name}
@@ -278,15 +345,32 @@ export function JobPostForm() {
                     Descrição do projeto
                   </label>
                   <div className="overflow-hidden rounded-[24px] border border-slate-100 bg-slate-100">
-                    <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 text-xs font-medium text-slate-400">
-                      <span>B</span>
-                      <span>I</span>
-                      <span>U</span>
-                      <span>O</span>
-                      <span>•••</span>
+                    <div className="flex items-center gap-1 border-b border-slate-200 px-3 py-2">
+                      {([
+                        { format: "bold" as const, label: "B", title: "Negrito", className: "font-bold" },
+                        { format: "italic" as const, label: "I", title: "Itálico", className: "italic" },
+                        { format: "underline" as const, label: "U", title: "Sublinhado", className: "underline" },
+                      ]).map(({ format, label, title, className }) => (
+                        <button
+                          key={format}
+                          type="button"
+                          title={title}
+                          onClick={() => applyFormat(format)}
+                          className={[
+                            "flex h-7 w-7 items-center justify-center rounded-md text-xs transition-all",
+                            className,
+                            activeFormats.has(format)
+                              ? "bg-slate-800 text-white shadow-sm"
+                              : "text-slate-400 hover:bg-slate-200 hover:text-slate-700",
+                          ].join(" ")}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
                     <Textarea
                       id="description"
+                      ref={descriptionRef}
                       required
                       value={formData.description}
                       onChange={(event) =>
@@ -295,6 +379,9 @@ export function JobPostForm() {
                           description: event.target.value,
                         }))
                       }
+                      onSelect={syncActiveFormats}
+                      onKeyUp={syncActiveFormats}
+                      onClick={syncActiveFormats}
                       className="min-h-56 border-0 bg-transparent px-5 py-4 text-sm leading-7 shadow-none focus-visible:ring-0"
                       placeholder="Descreva a ideia que você quer tirar do papel..."
                     />
@@ -345,6 +432,39 @@ export function JobPostForm() {
                       <option value="onsite">Presencial</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Prazo de Entrega
+                  </label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={[
+                          "flex h-14 w-full items-center gap-3 rounded-2xl border bg-slate-100 px-4 text-sm transition-colors hover:border-blue-300",
+                          formData.deadline ? "border-blue-200 text-slate-800" : "border-transparent text-slate-400",
+                        ].join(" ")}
+                      >
+                        <CalendarIcon className="size-4 shrink-0" />
+                        {formData.deadline
+                          ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(formData.deadline)
+                          : "Selecione uma data limite"}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.deadline}
+                        onSelect={(date) =>
+                          setFormData((current) => ({ ...current, deadline: date ?? undefined }))
+                        }
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div className="space-y-4 rounded-[28px] bg-white">
