@@ -162,6 +162,16 @@ export function ProposalDetailsPage() {
                     <p className="mt-1 font-heading text-3xl font-bold tracking-tight text-slate-950">
                       {formatCurrency(proposal.proposed_value)}
                     </p>
+                    {proposal.opportunity.deadline ? (
+                      <p className="mt-1 text-sm font-medium text-slate-500">
+                        Prazo de entrega:{" "}
+                        <span className="font-semibold text-slate-700">
+                          {new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(
+                            new Date(proposal.opportunity.deadline + "T00:00:00")
+                          )}
+                        </span>
+                      </p>
+                    ) : null}
                   </div>
 
                   {isPublisher && isPending && (

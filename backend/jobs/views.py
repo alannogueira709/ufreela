@@ -356,3 +356,43 @@ class ProposalDetailUpdateView(APIView):
 
         response_serializer = ProposalSerializer(updated_proposal)
         return Response(response_serializer.data)
+
+
+class SaveOpportunityToggleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, opportunity_id: int):
+        try:
+            opportunity = Opportunity.objects.get(pk=opportunity_id)
+        except Opportunity.DoesNotExist:
+            return Response(
+                {"error": "Oportunidade não encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        saved, created = SavedOpportunity.objects.get_or_create(
+            user=request.user,
+            opportunity=opportunity,
+        )
+
+        if not created:
+            saved.delete()
+            return Response({"saved": False}, status=status.HTTP_200_OK)
+
+        return Response({"saved": True}, status=status.HTTP_201_CREATED)
+
+    def get(self, request, opportunity_id: int):
+        try:
+            opportunity = Opportunity.objects.get(pk=opportunity_id)
+        except Opportunity.DoesNotExist:
+            return Response(
+                {"error": "Oportunidade não encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        is_saved = SavedOpportunity.objects.filter(
+            user=request.user,
+            opportunity=opportunity,
+        ).exists()
+
+        return Response({"saved": is_saved}, status=status.HTTP_200_OK)
