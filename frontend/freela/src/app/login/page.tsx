@@ -16,7 +16,7 @@ export default function Login() {
         <div className="grid w-full overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45)] md:grid-cols-[1.02fr_0.98fr]">
           <section className="relative hidden min-h-[640px] overflow-hidden bg-slate-950 md:flex md:flex-col">
             <Image
-              src="/images/placeholder.png"
+              src="/images/julian.jpeg"
               alt="Profissional trabalhando em um escritorio"
               fill
               sizes="(max-width: 767px) 100vw, 50vw"
@@ -38,7 +38,7 @@ export default function Login() {
               <div className="max-w-md space-y-5 text-white">
                 <div className="space-y-4">
                   <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-                    O espaco ideal para encontrar oportunidades com excelencia.
+                    A plataforma ideal para encontrar oportunidades.
                   </h1>
                   <p className="max-w-sm text-sm leading-7 text-slate-200 sm:text-base">
                     Conecte-se a projetos relevantes, empresas inovadoras e uma
@@ -65,7 +65,7 @@ export default function Login() {
                     ))}
                   </div>
                   <p className="text-xs font-medium text-slate-200/85 sm:text-sm">
-                    Mais de 1.000 talentos e recrutadores usando a plataforma.
+                    Mais de {trustedAvatars.length} talentos e recrutadores usando a plataforma.
                   </p>
                 </div>
               </div>

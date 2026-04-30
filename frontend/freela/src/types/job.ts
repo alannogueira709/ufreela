@@ -25,4 +25,6 @@ export interface Job {
   duration: string;
   durationLabel: string;
   href: string;
+  categoryId?: string;
+  categorySlug?: string;
 }

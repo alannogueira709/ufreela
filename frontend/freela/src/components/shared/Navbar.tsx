@@ -1,15 +1,16 @@
-"use client";
-
+﻿"use client";
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   AnimatePresence,
   motion,
   useMotionValueEvent,
   useScroll,
 } from "motion/react";
-import { Bell, ChevronDown, Menu, MessageSquare, User, X } from "lucide-react";
+import { Bell, ChevronDown, Menu, MessageSquare, X } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 import {
   DropdownMenu,
@@ -18,17 +19,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { navLinks } from "@/lib/nav-links";
+import { getNavLinks } from "@/lib/nav-links";
+import AvatarImage from "../ui/avatar-image";
 import type { UserRole } from "@/types/nav";
 
-const navLinkClassName =
-  "border-b-2 border-transparent pb-1 text-sm font-medium tracking-tight text-slate-500 transition-all duration-300 ease-in-out hover:border-blue-600 hover:text-blue-600";
+const navLinkClassName = "border-b-2 border-transparent pb-1 text-sm font-medium tracking-tight text-slate-500 transition-all duration-300 ease-in-out hover:border-blue-600 hover:text-blue-600";
 
-const activeLinkClassName =
-  "border-b-2 border-blue-600 pb-1 text-sm font-semibold tracking-tight text-blue-600 transition-all duration-300 ease-in-out";
+const activeLinkClassName = "border-b-2 border-blue-600 pb-1 text-sm font-semibold tracking-tight text-blue-600 transition-all duration-300 ease-in-out";
 
-const mobileNavLinkClassName =
-  "block rounded-2xl border border-white/30 bg-white/45 px-4 py-3 text-sm font-medium tracking-tight text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-blue-600";
+const mobileNavLinkClassName = "block rounded-2xl border border-white/30 bg-white/45 px-4 py-3 text-sm font-medium tracking-tight text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-blue-600";
 
 type NavbarProps = {
   role: UserRole;
@@ -36,11 +35,33 @@ type NavbarProps = {
 
 export default function Navbar({ role }: NavbarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { scrollY } = useScroll();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const links = navLinks[role];
   const isGuest = role === "guest";
+  const { user, logout } = useAuth();
+  const links = getNavLinks(role, user?.id);
+
+  const profileHref =
+    user?.role === "freelancer"
+      ? `/profile/freelancer/${user.id}`
+      : user?.role === "publisher"
+        ? `/profile/publisher/${user.id}`
+        : "/";
+
+
+  async function handleLogout() {
+    await logout();
+    setIsMobileMenuOpen(false);
+    router.push("/login");
+    router.refresh();
+  }
+
+  function handleViewProfile() {
+    setIsMobileMenuOpen(false);
+    router.push(profileHref);
+  }
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     setIsScrolled(latest > 20);
@@ -64,9 +85,14 @@ export default function Navbar({ role }: NavbarProps) {
           <div className="flex items-center gap-10">
             <Link
               href="/"
-              className="font-heading text-2xl font-bold tracking-tighter text-slate-950"
+              className="group flex items-center gap-2.5 font-heading text-2xl font-bold tracking-tighter text-slate-950 transition-all duration-300"
             >
-              uFreela<span className="text-blue-600">.</span>
+              <div className="flex items-center justify-center rounded-xl border border-white/40 bg-white/30 p-1.5 shadow-sm backdrop-blur-md transition-all duration-300 group-hover:bg-white/50 group-hover:shadow-md">
+                <Image src="/ufreela.svg" alt="uFreela" width={28} height={28} className="drop-shadow-sm" />
+              </div>
+              <span className="pt-0.5">
+                uFreela<span className="text-blue-600">.</span>
+              </span>
             </Link>
 
             <div className="hidden items-center gap-6 md:flex">
@@ -138,8 +164,14 @@ export default function Navbar({ role }: NavbarProps) {
                       whileTap={{ scale: 0.97 }}
                       className="hidden items-center gap-1 rounded-full border border-white/35 bg-white/35 p-1 pl-2 text-slate-600 shadow-sm backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/55 hover:text-slate-900 md:flex"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200/80 text-slate-600">
-                        <User size={18} />
+                     
+                      <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-200/80 text-slate-600">
+                        <AvatarImage 
+                          email={user?.email}
+                          profileImg={user?.profile_img}
+                          size={32}
+                          alt={`Avatar de ${user?.display_name || "usuario"}`}
+                        />
                       </div>
                       <ChevronDown size={16} className="text-slate-500" />
                     </motion.button>
@@ -148,10 +180,12 @@ export default function Navbar({ role }: NavbarProps) {
                     align="end"
                     className="rounded-2xl border border-white/30 bg-white/45 p-2 shadow-[0_20px_50px_-28px_rgba(15,23,42,0.45)] backdrop-blur-2xl"
                   >
-                    <DropdownMenuItem>Ver Perfil</DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleViewProfile}>
+                      Ver Perfil
+                    </DropdownMenuItem>
                     <DropdownMenuItem>Ajustes</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>Sair</DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>Sair</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -218,12 +252,17 @@ export default function Navbar({ role }: NavbarProps) {
                     <>
                       <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/45 px-4 py-3 text-sm font-medium text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-slate-900">
                         <Bell size={18} />
-                        Notificacoes
+                        Notificações
                       </button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/45 px-4 py-3 text-sm font-medium text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-slate-900">
-                            <User size={18} />
+                            <AvatarImage
+                              email={user?.email}
+                              profileImg={user?.profile_img}
+                              size={20}
+                              alt={`Avatar de ${user?.display_name || "usuario"}`}
+                            />
                             Perfil
                             <ChevronDown size={16} className="text-slate-500" />
                           </button>
@@ -232,10 +271,12 @@ export default function Navbar({ role }: NavbarProps) {
                           align="end"
                           className="rounded-2xl border border-white/30 bg-white/45 p-2 shadow-[0_20px_50px_-28px_rgba(15,23,42,0.45)] backdrop-blur-2xl"
                         >
-                          <DropdownMenuItem>Ver Perfil</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleViewProfile}>
+                            Ver Perfil
+                          </DropdownMenuItem>
                           <DropdownMenuItem>Ajustes</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>Sair</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleLogout}>Sair</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </>

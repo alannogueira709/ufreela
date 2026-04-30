@@ -1,9 +1,26 @@
+"use client";
+
+import type React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import FeaturedJobsSection from "@/components/home/FeaturedJobsSection";
 import InteractiveMarquee from "@/components/home/InteractiveMarquee";
 import QuickActionMenu from "@/components/home/QuickActionMenu";
 import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
+import { FreelancerHome } from "@/app/freelancerHome";
+import { PublisherHome } from "@/app/publisherHome";
 import type { UserRole } from "@/types/nav";
+import { useAuth } from "@/contexts/AuthContext";
+import { getApiErrorMessage } from "@/lib/api-errors";
+import {
+  EMPTY_FREELANCER_HOME_DATA,
+  getFreelancerHomeData,
+} from "@/lib/freelancer-home-service";
+import {
+  EMPTY_PUBLISHER_HOME_DATA,
+  getPublisherHomeData,
+} from "@/lib/publisher-home-service";
 
 function GuestHome() {
   return (
@@ -28,34 +45,6 @@ function GuestHome() {
   );
 }
 
-function CandidateHome() {
-  return (
-    <section className="container mx-auto space-y-4 px-8 py-10">
-      <h1 className="font-heading text-4xl font-bold tracking-tight text-slate-950">
-        Painel do Candidato
-      </h1>
-      <p className="max-w-2xl text-sm font-medium text-slate-500 md:text-base">
-        Acompanhe propostas enviadas, encontre novas vagas e mantenha suas
-        conversas com recrutadores em dia.
-      </p>
-    </section>
-  );
-}
-
-function PublisherHome() {
-  return (
-    <section className="container mx-auto space-y-4 px-8 py-10">
-      <h1 className="font-heading text-4xl font-bold tracking-tight text-slate-950">
-        Painel do Publicador
-      </h1>
-      <p className="max-w-2xl text-sm font-medium text-slate-500 md:text-base">
-        Gerencie projetos, publique vagas e acompanhe candidatos interessados
-        em trabalhar com sua equipe.
-      </p>
-    </section>
-  );
-}
-
 function AdminHome() {
   return (
     <section className="container mx-auto space-y-4 px-8 py-10">
@@ -70,15 +59,120 @@ function AdminHome() {
   );
 }
 
-const roleContent: Record<UserRole, React.ReactNode> = {
-  guest: <GuestHome />,
-  candidate: <CandidateHome />,
-  publisher: <PublisherHome />,
-  admin: <AdminHome />,
-};
-
 export default function Home() {
-  const activeRole: UserRole = "guest";
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
+  const {
+    data: freelancerHomeData,
+    isLoading: isLoadingFreelancerHome,
+    error: freelancerHomeError,
+  } = useQuery({
+    queryKey: ["freelancer-home", user?.id],
+    queryFn: async () => {
+      if (!user?.id) {
+        throw new Error("Freelancer nao autenticado.");
+      }
+
+      return getFreelancerHomeData(user.id);
+    },
+    enabled: user?.role === "freelancer" && Boolean(user?.id),
+    retry: false,
+  });
+  const {
+    data: publisherHomeData,
+    isLoading: isLoadingPublisherHome,
+    error: publisherHomeError,
+  } = useQuery({
+    queryKey: ["publisher-home", user?.id],
+    queryFn: async () => {
+      if (!user?.id) {
+        throw new Error("Publisher nao autenticado.");
+      }
+
+      return getPublisherHomeData(user.id);
+    },
+    enabled: user?.role === "publisher" && Boolean(user?.id),
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+        <Navbar role="guest" />
+        
+        <Footer />
+      </div>
+    );
+  }
+
+  const roleContent: Record<UserRole, React.ReactNode> = {
+    guest: <GuestHome />,
+    freelancer: (
+      <FreelancerHome
+        userDisplayName={user?.display_name || user?.first_name}
+        onViewProposals={() =>
+          user?.id && router.push(`/profile/freelancer/${user.id}/proposals`)
+        }
+        onViewAllProposals={() =>
+          user?.id && router.push(`/profile/freelancer/${user.id}/proposals`)
+        }
+        onViewSavedJobs={() => router.push("/jobs")}
+        onRetakeAssessments={() => router.push("/welcome/freelancer")}
+        onUpdatePortfolio={() =>
+          user?.id && router.push(`/profile/freelancer/${user.id}/settings`)
+        }
+        data={
+          freelancerHomeData ??
+          (isLoadingFreelancerHome || freelancerHomeError
+            ? EMPTY_FREELANCER_HOME_DATA
+            : undefined)
+        }
+        isLoading={isLoadingFreelancerHome}
+        error={
+          freelancerHomeError
+            ? getApiErrorMessage(
+                freelancerHomeError,
+                "Nao foi possivel carregar os dados do dashboard do freelancer.",
+              )
+            : null
+        }
+      />
+    ),
+    publisher: (
+      <PublisherHome
+        userDisplayName={user?.display_name || user?.first_name}
+        onCreateProject={() => router.push("/jobs/post")}
+        onPostJob={() => router.push("/jobs/post")}
+        onViewCandidates={() => router.push("/hire")}
+        onViewAllProposals={() =>
+          user?.id && router.push(`/profile/publisher/${user.id}/opportunities`)
+        }
+        onOpenAnalytics={() =>
+          user?.id && router.push(`/profile/publisher/${user.id}/opportunities`)
+        }
+        data={
+          publisherHomeData ??
+          (isLoadingPublisherHome || publisherHomeError
+            ? EMPTY_PUBLISHER_HOME_DATA
+            : undefined)
+        }
+        isLoading={isLoadingPublisherHome}
+        error={
+          publisherHomeError
+            ? getApiErrorMessage(
+                publisherHomeError,
+                "Nao foi possivel carregar os dados do dashboard do publisher.",
+              )
+            : null
+        }
+      />
+    ),
+    admin: <AdminHome />,
+  };
+
+  const activeRole: UserRole =
+    user?.role && user.role in roleContent ? user.role : "guest";
+    
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <Navbar role={activeRole} />
