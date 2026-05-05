@@ -32,6 +32,7 @@ services:
       - /app/node_modules
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+      - INTERNAL_API_URL=http://backend:8000/api
       - NODE_OPTIONS=--max-old-space-size=2048
     depends_on:
       - backend         

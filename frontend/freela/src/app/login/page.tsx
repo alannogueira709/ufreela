@@ -1,22 +1,19 @@
 import Link from "next/link";
 import Image from "next/image";
+import { getFeaturedCandidates } from "@/lib/public-service";
 
 import { LoginForm } from "@/components/login/login-form";
 
-const trustedAvatars = [
-  { src: "/images/elena.jpeg", alt: "Elena Rodriguez" },
-  { src: "/images/julian.jpeg", alt: "Julian Thorne" },
-  { src: "/images/sarah.jpeg", alt: "Sarah Jenkins" },
-];
+export default async function Login() {
+  const featuredCandidates = await getFeaturedCandidates();
 
-export default function Login() {
   return (
     <main className="min-h-svh bg-slate-100 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mx-auto flex min-h-[calc(100svh-2rem)] max-w-7xl items-center">
         <div className="grid w-full overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45)] md:grid-cols-[1.02fr_0.98fr]">
           <section className="relative hidden min-h-[640px] overflow-hidden bg-slate-950 md:flex md:flex-col">
             <Image
-              src="/images/julian.jpeg"
+              src="/images/placeholder.png"
               alt="Profissional trabalhando em um escritorio"
               fill
               sizes="(max-width: 767px) 100vw, 50vw"
@@ -49,14 +46,14 @@ export default function Login() {
 
                 <div className="flex items-center gap-4 pt-4">
                   <div className="flex -space-x-3">
-                    {trustedAvatars.map((avatar) => (
+                    {featuredCandidates.map((candidate) => (
                       <div
-                        key={avatar.src}
+                        key={candidate.uuid}
                         className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-slate-900/80"
                       >
                         <Image
-                          src={avatar.src}
-                          alt={avatar.alt}
+                          src={candidate.avatarUrl}
+                          alt={candidate.name}
                           fill
                           sizes="40px"
                           className="object-cover"
@@ -65,7 +62,7 @@ export default function Login() {
                     ))}
                   </div>
                   <p className="text-xs font-medium text-slate-200/85 sm:text-sm">
-                    Mais de {trustedAvatars.length} talentos e recrutadores usando a plataforma.
+                    Mais de {featuredCandidates.length} talentos e recrutadores usando a plataforma.
                   </p>
                 </div>
               </div>

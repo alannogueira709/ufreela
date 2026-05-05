@@ -392,7 +392,7 @@ export default function FreelancerProfilePage() {
                     </div>
                   ) : (
                     <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
-                      As competencias deste freelancer ainda nao foram cadastradas no banco de dados.
+                      As competências deste freelancer ainda não foram cadastradas no banco de dados.
                     </p>
                   )}
                 </CardContent>

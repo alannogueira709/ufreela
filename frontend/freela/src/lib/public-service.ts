@@ -58,6 +58,26 @@ function getApiOrigin() {
   return baseUrl.endsWith("/api") ? baseUrl.slice(0, -4) : baseUrl;
 }
 
+function getServerApiBaseUrl() {
+  // On the server (Server Components / SSR inside Docker), use the internal
+  // network hostname so we reach the backend container directly.
+  return (
+    process.env.INTERNAL_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:8000/api"
+  );
+}
+
+async function serverGet<T>(path: string): Promise<T> {
+  const base = getServerApiBaseUrl().replace(/\/$/, "");
+  const url = `${base}${path}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Server fetch failed: ${res.status} ${res.statusText} — ${url}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export function resolveMediaUrl(path: string | null | undefined) {
   if (!path) {
     return null;
@@ -223,18 +243,17 @@ function mapFreelancerToCandidate(freelancer: ApiFreelancer): Candidate {
 }
 
 export async function getCategories() {
-  const response = await api.get<{ category_id: number; category_name: string; category_slug: string }[]>("/categories/");
-  return response.data;
+  return serverGet<{ category_id: number; category_name: string; category_slug: string }[]>("/categories/");
 }
 
 export async function getFeaturedJobs() {
-  const response = await api.get<Opportunity[]>("/opportunities/");
-  return response.data.map(mapOpportunityToJob);
+  const data = await serverGet<Opportunity[]>("/opportunities/");
+  return data.map(mapOpportunityToJob);
 }
 
 export async function getFeaturedCandidates() {
-  const response = await api.get<ApiFreelancer[]>("/freelancers/featured/");
-  return response.data.map(mapFreelancerToCandidate);
+  const data = await serverGet<ApiFreelancer[]>("/freelancers/featured/");
+  return data.map(mapFreelancerToCandidate);
 }
 
 export async function getFreelancerProfile(userId: string) {
