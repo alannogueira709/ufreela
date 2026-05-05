@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ArrowRight, ChevronLeft } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, type Variants } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,7 @@ import {
 import type { Role } from "./choose_role";
 import type { OnboardingFormData } from "./types";
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: {},
   visible: {
     transition: {
@@ -32,7 +32,7 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 18 },
   visible: {
     opacity: 1,

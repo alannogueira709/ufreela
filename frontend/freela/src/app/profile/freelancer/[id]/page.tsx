@@ -7,7 +7,6 @@ import { motion } from "motion/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
@@ -20,13 +19,13 @@ import {
   Clock,
   DollarSign,
   Share2,
-  Settings, 
+  Settings,
   Star,
   Pencil,
 } from "lucide-react";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { getAvatarUrl } from "@/lib/avatar";
-import { getFreelancerProfile } from "@/lib/public-service";
+import { getFreelancerProfile, toggleSavedProfile } from "@/lib/public-service";
 import type { FreelancerProfileResponse } from "@/lib/public-service";
 import { ShareDialog } from "@/components/shared/ShareDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -182,29 +181,13 @@ export default function FreelancerProfilePage() {
       toast.error("Você precisa estar logado para salvar perfis.");
       return;
     }
-    if (user.id === userId) {
-      toast.error("Você não pode salvar a si mesmo.");
-      return;
-    }
 
     try {
       setIsSaving(true);
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const token = localStorage.getItem("accessToken");
-      const res = await fetch(`${API_URL}/api/users/profile/save/${userId}/`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) throw new Error("Falha ao salvar");
-
-      const data = await res.json();
+      const data = await toggleSavedProfile(userId);
       setIsSaved(data.saved);
       toast.success(data.saved ? "Perfil salvo com sucesso!" : "Perfil removido dos salvos.");
-    } catch (err) {
+    } catch {
       toast.error("Ocorreu um erro ao tentar salvar este perfil.");
     } finally {
       setIsSaving(false);
@@ -249,19 +232,30 @@ export default function FreelancerProfilePage() {
       <Navbar role="freelancer" />
 
       <main className="mx-auto max-w-7xl px-6 pb-20 pt-8 lg:px-8">
+        {error ? (
+          <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {error}
+          </div>
+        ) : null}
         <motion.div {...fadeUp(0)}>
           <Card className="overflow-hidden rounded-3xl border-0 shadow-[0_24px_64px_-20px_rgba(15,23,42,0.1)]">
-            <div className="relative h-44 bg-linear-to-br from-blue-700 via-blue-600 to-indigo-500 lg:h-52">
+            {/* Banner - gradiente corrigido, sem espaços */}
+            <div
+              className="relative h-48 overflow-hidden lg:h-56"
+              style={{
+                background: 'linear-gradient(135deg, #1d4ed8 0%, #4f7cff 50%, #8ab9fc 100%)'
+              }}
+            >
               <div
-                className="absolute inset-0 opacity-10"
+                className="absolute inset-0"
                 style={{
-                  background: 'linear-gradient(0deg,rgba(255, 255, 255, 1) 0%, rgba(214, 220, 255, 1) 47%, rgba(138, 185, 252, 1) 100%)',
+                  background: 'radial-gradient(circle at 20% 25%, rgba(255,255,255,0.26), transparent 34%), radial-gradient(circle at 80% 0%, rgba(255,255,255,0.18), transparent 28%)'
                 }}
-              />  
-              <div className="absolute right-6 top-5 flex gap-2">
+              />
+              <div className="absolute right-6 top-5 z-10 flex gap-2">
                 {isOwnProfile ? (
                   <Link
-                    href={`/edit-profile/${userId}`}
+                    href={`/profile/freelancer/${userId}/settings`}
                     className="inline-flex h-9 items-center gap-2 rounded-full border border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/30"
                   >
                     <Pencil size={13} />
@@ -293,47 +287,60 @@ export default function FreelancerProfilePage() {
               </div>
             </div>
 
-            <CardContent className="relative -mt-16 px-8 pb-8">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
-                <div className="relative w-fit">
-                  <Avatar className="h-28 w-28 rounded-2xl border-4 border-white shadow-[0_16px_48px_-12px_rgba(15,23,42,0.2)]">
-                    <AvatarImage src={getAvatarUrl(profile?.email, profile?.profile_img)} className="w-full h-full object-cover" />
-                    <AvatarFallback className="rounded-2xl bg-blue-100 text-xl font-bold text-blue-700">
-                      {initials || "FR"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="absolute bottom-2 right-2 flex h-3.5 w-3.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-white" />
-                  </span>
+            {/* Info section - padding e layout corrigidos */}
+            <CardContent className="px-6 pb-8 pt-0 sm:px-8">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                {/* Left: Avatar + Info */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                  {/* Avatar - posicionamento corrigido */}
+                  <div className="relative -mt-14 shrink-0 self-start sm:-mt-16">
+                    <div className="rounded-full bg-white p-1.5 shadow-[0_16px_48px_-12px_rgba(15,23,42,0.22)]">
+                      <Avatar className="h-24 w-24 rounded-full border-0 sm:h-28 sm:w-28">
+                        <AvatarImage
+                          src={getAvatarUrl(profile?.email, profile?.profile_img)}
+                          className="h-full w-full rounded-full object-cover"
+                        />
+                        <AvatarFallback className="rounded-full bg-blue-100 text-xl font-bold text-blue-700">
+                          {initials || "FR"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                    {/* Status indicator */}
+                    <span className="absolute bottom-2 right-2 flex h-3.5 w-3.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+                    </span>
+                  </div>
+
+                  {/* Name and details */}
+                  <div className="pt-0 sm:pb-2 sm:pt-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="text-[1.75rem] font-bold tracking-tight text-slate-950 sm:text-[1.9rem]">
+                        {fullName}
+                      </h1>
+                      <BadgeCheck size={22} className="text-blue-600" />
+                    </div>
+                    <p className="mt-0.5 text-[15px] text-slate-600">{levelLabel}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-4">
+                      <StarRating
+                        rating={Number.isFinite(rating) ? rating : 0}
+                        count={profile?.finished_jobs ?? 0}
+                        size={13}
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex-1 pb-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-[1.9rem] font-bold tracking-tight text-slate-950">
-                      {fullName}
-                    </h1>
-                    <BadgeCheck size={22} className="text-blue-600" />
-                  </div>
-                  <p className="mt-0.5 text-[15px] text-slate-500">{levelLabel}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-4">
-                    <StarRating
-                      rating={Number.isFinite(rating) ? rating : 0}
-                      count={profile?.finished_jobs ?? 0}
-                      size={13}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2.5 pb-1">
+                {/* Right: Action buttons */}
+                <div className="flex gap-2.5 pt-0 sm:pt-4">
                   {isOwnProfile ? (
-                    <Link
-                      href="/settings"
-                      className="inline-flex h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
-                    >
-                      <Settings size={16} />
-                      Configurações
-                    </Link>
+                      <Link
+                        href={`/profile/freelancer/${userId}/settings`}
+                        className="inline-flex h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
+                      >
+                        <Settings size={16} />
+                        Configurações
+                      </Link>
                   ) : (
                     <>
                       <Button
@@ -361,7 +368,7 @@ export default function FreelancerProfilePage() {
                   <h2 className="text-base font-bold text-slate-900">Sobre Mim</h2>
                   <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
                     {profile?.description ||
-                      "Este freelancer ainda nao adicionou uma descricao detalhada no banco de dados."}
+                      "Este freelancer ainda nao adicionou uma descrição detalhada no banco de dados."}
                   </p>
                 </CardContent>
               </Card>
@@ -519,7 +526,7 @@ export default function FreelancerProfilePage() {
       </main>
 
       <Footer />
-      <ShareDialog 
+      <ShareDialog
         isOpen={isShareOpen}
         onClose={() => setIsShareOpen(false)}
         url={typeof window !== "undefined" ? window.location.href : ""}

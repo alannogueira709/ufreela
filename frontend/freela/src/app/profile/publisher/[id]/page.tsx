@@ -26,10 +26,9 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { getApiErrorMessage } from "@/lib/api-errors";
 import { getAvatarUrl } from "@/lib/avatar";
-import { getPublisherProfile } from "@/lib/public-service";
-import type { PublisherProfileResponse } from "@/types/public";
+import { getPublisherProfile, toggleSavedProfile } from "@/lib/public-service";
+import type { PublisherProfileResponse } from "@/lib/public-service";
 import { ShareDialog } from "@/components/shared/ShareDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -105,7 +104,6 @@ export default function PublisherProfilePage() {
   const userId = params?.id;
   const [profile, setProfile] = useState<PublisherProfileResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -124,6 +122,7 @@ export default function PublisherProfilePage() {
         const data = await getPublisherProfile(userId);
         if (isMounted) {
           setProfile(data);
+          setIsSaved(data.is_saved ?? false);
         }
       } catch {
         if (isMounted) {
@@ -174,22 +173,10 @@ export default function PublisherProfilePage() {
 
     try {
       setIsSaving(true);
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const token = localStorage.getItem("accessToken");
-      const res = await fetch(`${API_URL}/api/users/profile/save/${userId}/`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) throw new Error("Falha ao salvar");
-
-      const data = await res.json();
+      const data = await toggleSavedProfile(userId);
       setIsSaved(data.saved);
       toast.success(data.saved ? "Perfil salvo com sucesso!" : "Perfil removido dos salvos.");
-    } catch (err) {
+    } catch {
       toast.error("Ocorreu um erro ao tentar salvar este perfil.");
     } finally {
       setIsSaving(false);

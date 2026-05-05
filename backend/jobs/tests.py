@@ -1,7 +1,7 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from jobs.models import Category, Opportunity, Proposal
+from jobs.models import Category, Opportunity, Proposal, SavedOpportunity
 from users.models import Freelancer, Publisher, Role, User
 
 
@@ -128,3 +128,22 @@ class OpportunityApiTests(TestCase):
             response.json()[0]["opportunity"]["opportunity_id"],
             self.opportunity.opportunity_id,
         )
+
+    def test_freelancer_can_toggle_saved_opportunity(self):
+        self.client.force_authenticate(self.freelancer_user)
+
+        first_response = self.client.post(
+            f"/api/opportunities/save/{self.opportunity.opportunity_id}/"
+        )
+        status_response = self.client.get(
+            f"/api/opportunities/save/{self.opportunity.opportunity_id}/"
+        )
+        second_response = self.client.post(
+            f"/api/opportunities/save/{self.opportunity.opportunity_id}/"
+        )
+
+        self.assertEqual(first_response.status_code, 201)
+        self.assertTrue(status_response.json()["saved"])
+        self.assertEqual(second_response.status_code, 200)
+        self.assertFalse(second_response.json()["saved"])
+        self.assertEqual(SavedOpportunity.objects.count(), 0)

@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { getCategories, getFeaturedJobs } from "@/lib/public-service";
 import type { Job } from "@/types/job";
@@ -29,12 +27,6 @@ const experienceOptions = [
 type ExperienceFilter = (typeof experienceOptions)[number]["id"];
 
 const ITEMS_PER_PAGE = 5;
-
-const sortOptions = [
-  { label: "Mais Recentes", value: "recent" },
-  { label: "Maior Orcamento", value: "budget-desc" },
-  { label: "Menor Orcamento", value: "budget-asc" },
-] as const;
 
 const badgeToneClassName = {
   blue: "bg-blue-50 text-blue-600",
@@ -120,8 +112,6 @@ export default function FeaturedJobsSection() {
 
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
-      const joinedTags = job.tags.join(" ").toLowerCase();
-
       const matchesCategory =
         selectedCategory === "all"
           ? true
@@ -367,7 +357,8 @@ export default function FeaturedJobsSection() {
               </article>
             ) : null}
 
-            {paginatedJobs.map((job) => (
+            {paginatedJobs.length > 0 ? (
+              paginatedJobs.map((job) => (
               <article
                 key={job.id}
                 className="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm transition-all duration-300 ease-in-out hover:border-slate-300 hover:shadow-md"

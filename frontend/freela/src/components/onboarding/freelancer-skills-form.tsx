@@ -33,7 +33,7 @@ import {
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 type SkillCategory = {
   category_id: number;
@@ -57,9 +57,9 @@ type SkillLevelOption = {
 };
 
 const skillItemSchema = z.object({
-  skill_id: z.coerce.number().min(1, "Selecione uma habilidade."),
+  skill_id: z.number().min(1, "Selecione uma habilidade."),
   skill_level: z.enum(["beginner", "intermediate", "advanced"], {
-    errorMap: () => ({ message: "Selecione um nivel valido." }),
+    message: "Selecione um nivel valido.",
   }),
 });
 

@@ -1,6 +1,6 @@
-interface publisher{
-    uuid: string;
-    name: string;
-    email: string;
-    cnpj: string;
+export interface Publisher {
+  uuid: string;
+  name: string;
+  email: string;
+  cnpj: string;
 }

@@ -7,7 +7,7 @@ import {
   ChevronLeft,
   CircleUserRound,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, type Variants } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ const roleOptions = [
   },
 ];
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: {},
   visible: {
     transition: {
@@ -44,7 +44,7 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 18 },
   visible: {
     opacity: 1,
@@ -167,6 +167,9 @@ export default function ChooseRole({
           className="rounded-full bg-blue-600 px-8 hover:bg-blue-700"
           disabled={!selected}
           onClick={() => {
+            if (!selected) {
+              return;
+            }
             updateData({ role: selected });
             onNext();
           }}

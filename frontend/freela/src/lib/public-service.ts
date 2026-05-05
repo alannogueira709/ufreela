@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import { getAvatarUrl } from "@/lib/avatar";
 import type { Candidate } from "@/types/candidate";
-import type { Job } from "@/types/job";
+import type { ExperienceLevel, Job, JobCategory } from "@/types/job";
 import type { Opportunity } from "@/types/opportunity";
 
 interface ApiFreelancer {
@@ -27,6 +27,7 @@ export interface FreelancerProfileResponse {
   hourly_rate: string | null;
   mean_eval: string;
   finished_jobs: number;
+  is_saved: boolean;
   skills: {
     skill_id: number;
     skill_name: string;
@@ -48,6 +49,7 @@ export interface PublisherProfileResponse {
   profile_img: string | null;
   company_name: string;
   mean_eval: string;
+  is_saved: boolean;
   opportunities: Opportunity[];
 }
 
@@ -88,6 +90,12 @@ function formatRelativePostedAt(value: string) {
   return rtf.format(diffDays, "day");
 }
 
+function getPostedAtHours(value: string) {
+  const postedDate = new Date(value);
+  const diffMs = Date.now() - postedDate.getTime();
+  return Math.max(0, Math.round(diffMs / (1000 * 60 * 60)));
+}
+
 function parseNumber(value: string | null | undefined, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -114,6 +122,45 @@ function formatBudget(min: string | null, max: string | null) {
     currency: "BRL",
     maximumFractionDigits: 0,
   }).format(min ? minNumber : maxNumber);
+}
+
+function getBudgetAmount(min: string | null, max: string | null) {
+  const minNumber = parseNumber(min, 0);
+  const maxNumber = parseNumber(max, 0);
+
+  if (min && max) {
+    return (minNumber + maxNumber) / 2;
+  }
+
+  return min ? minNumber : maxNumber;
+}
+
+function mapCategory(categoryName: string | undefined): JobCategory {
+  const normalized = categoryName?.toLowerCase() ?? "";
+
+  if (normalized.includes("design")) {
+    return "Design";
+  }
+
+  if (normalized.includes("ia") || normalized.includes("ai")) {
+    return "Serviços de IA";
+  }
+
+  return "Desenvolvimento e TI";
+}
+
+function mapExperienceLevel(level: string | null | undefined): ExperienceLevel {
+  const normalized = level?.toLowerCase() ?? "";
+
+  if (normalized === "junior") {
+    return "Iniciante";
+  }
+
+  if (normalized === "senior") {
+    return "Especialista";
+  }
+
+  return "Intermediário";
 }
 
 function mapProfessionalLevel(level: string | null | undefined) {
@@ -144,10 +191,14 @@ function mapOpportunityToJob(opportunity: Opportunity): Job {
     badge: opportunity.status === "open" ? "Open" : "Closed",
     badgeTone: opportunity.status === "open" ? "blue" : "cyan",
     postedAt: formatRelativePostedAt(opportunity.created_at),
+    postedAtHours: getPostedAtHours(opportunity.created_at),
     title: opportunity.title,
     description: opportunity.description,
     tags: opportunity.skills.map((skill) => skill.skill_name).slice(0, 5),
+    category: mapCategory(opportunity.category?.category_name),
+    experienceLevel: mapExperienceLevel(opportunity.xp_level),
     budget: formatBudget(opportunity.budget_min, opportunity.budget_max),
+    budgetAmount: getBudgetAmount(opportunity.budget_min, opportunity.budget_max),
     budgetType: "Budget",
     duration: opportunity.xp_level ? opportunity.xp_level.toUpperCase() : "N/A",
     durationLabel: "Nivel",
@@ -197,5 +248,10 @@ export async function getPublisherProfile(userId: string) {
   const response = await api.get<PublisherProfileResponse>(
     `/profile/publisher/${userId}/`,
   );
+  return response.data;
+}
+
+export async function toggleSavedProfile(userId: string) {
+  const response = await api.post<{ saved: boolean }>(`/profile/save/${userId}/`);
   return response.data;
 }

@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { ProjectDashboardPage } from "@/components/dashboard/project-dashboard-page";
 
 export default function PublisherDashboardPage() {
-  redirect("/");
+  return <ProjectDashboardPage role="publisher" />;
 }

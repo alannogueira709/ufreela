@@ -72,6 +72,9 @@ export function ProposalDetailsPage() {
       setIsUpdating(true);
       const updated = await updateProposalStatus(proposalId, status);
       setProposal(updated);
+      if (status === "accepted" && user?.id) {
+        router.push(`/profile/publisher/${user.id}/dashboard`);
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, "Não foi possível atualizar o status da proposta."));
     } finally {
@@ -81,6 +84,12 @@ export function ProposalDetailsPage() {
 
   const isPublisher = user?.role === "publisher";
   const isPending = proposal?.status === "pending";
+  const dashboardHref =
+    user?.role === "publisher"
+      ? `/profile/publisher/${user.id}/dashboard`
+      : user?.role === "freelancer"
+        ? `/profile/freelancer/${user.id}/dashboard`
+        : "/";
 
   if (authLoading || isLoading) {
     return (
@@ -194,6 +203,13 @@ export function ProposalDetailsPage() {
                         Aceitar e Iniciar Contrato
                       </Button>
                     </div>
+                  )}
+                  {proposal.status === "accepted" && (
+                    <Link href={dashboardHref}>
+                      <Button className="h-12 rounded-full bg-blue-600 px-6 text-white hover:bg-blue-700">
+                        Ir para dashboard do contrato
+                      </Button>
+                    </Link>
                   )}
                 </div>
               </div>

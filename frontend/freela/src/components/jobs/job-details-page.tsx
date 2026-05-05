@@ -9,7 +9,6 @@ import {
   Bookmark,
   Building2,
   CheckCircle2,
-  CircleDollarSign,
   Clock3,
   Star,
   User,
@@ -23,7 +22,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { toast } from "sonner";
-import { getOpportunityById, getOpportunities } from "@/lib/job-service";
+import {
+  getOpportunityById,
+  getOpportunities,
+  getSavedOpportunityStatus,
+  toggleSavedOpportunity,
+} from "@/lib/job-service";
 import { createProposal } from "@/lib/proposal-service";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Opportunity } from "@/types/opportunity";
@@ -76,32 +80,6 @@ function buildResponsibilities(job: Opportunity) {
     `Collaborate with the client team to validate decisions, align scope and de-risk delivery.`,
     `Document key tradeoffs and recommendations around ${secondSkill.toLowerCase()} and launch readiness.`,
   ];
-}
-
-function buildHeroPalette(title: string) {
-  const normalized = title.toLowerCase();
-
-  if (normalized.includes("design")) {
-    return {
-      shell: "from-slate-950 via-slate-900 to-slate-800",
-      panel: "from-cyan-300 via-sky-300 to-teal-300",
-      accent: "bg-cyan-200/80",
-    };
-  }
-
-  if (normalized.includes("data") || normalized.includes("ai")) {
-    return {
-      shell: "from-slate-950 via-indigo-950 to-slate-900",
-      panel: "from-violet-300 via-fuchsia-300 to-sky-300",
-      accent: "bg-violet-200/80",
-    };
-  }
-
-  return {
-    shell: "from-slate-950 via-slate-900 to-slate-800",
-    panel: "from-blue-300 via-cyan-300 to-teal-200",
-    accent: "bg-blue-200/80",
-  };
 }
 
 export function JobDetailsPage() {
@@ -158,10 +136,33 @@ export function JobDetailsPage() {
     () => (job ? buildResponsibilities(job) : []),
     [job],
   );
-  const palette = useMemo(
-    () => buildHeroPalette(job?.title ?? ""),
-    [job?.title],
-  );
+  useEffect(() => {
+    if (!user || !opportunityId) {
+      setIsSaved(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadSavedStatus = async () => {
+      try {
+        const data = await getSavedOpportunityStatus(opportunityId);
+        if (isMounted) {
+          setIsSaved(data.saved);
+        }
+      } catch {
+        if (isMounted) {
+          setIsSaved(false);
+        }
+      }
+    };
+
+    void loadSavedStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [opportunityId, user]);
 
   async function handleProposalSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -204,22 +205,14 @@ export function JobDetailsPage() {
 
     try {
       setIsSaving(true);
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const token = localStorage.getItem("accessToken");
-      const res = await fetch(`${API_URL}/api/jobs/opportunities/save/${opportunityId}/`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      if (!opportunityId) {
+        return;
+      }
 
-      if (!res.ok) throw new Error("Falha ao salvar");
-
-      const data = await res.json();
+      const data = await toggleSavedOpportunity(opportunityId);
       setIsSaved(data.saved);
       toast.success(data.saved ? "Vaga salva com sucesso!" : "Vaga removida dos salvos.");
-    } catch (err) {
+    } catch {
       toast.error("Ocorreu um erro ao tentar salvar esta vaga.");
     } finally {
       setIsSaving(false);
@@ -458,7 +451,7 @@ export function JobDetailsPage() {
                       {job.publisher.company_name || "Verified client"}
                     </div>
                     <div className="flex items-center gap-3 text-sm text-slate-500">
-                      <Link href={`/profile/${job.publisher.id}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700">
+                      <Link href={`/profile/publisher/${job.publisher.id}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700">
                         <User className="size-4" />
                         Ver perfil
                       </Link>

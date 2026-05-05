@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth import logout as django_logout
 from django.shortcuts import redirect
+from django.utils.text import slugify
 from django.utils.decorators import method_decorator
 from jobs.serializers import OpportunityListSerializer
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -197,7 +198,43 @@ class UserMeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        return Response(self._serialize_user(request.user))
+
+    def patch(self, request):
         user = request.user
+        role = user.role.role_name if user.role else None
+        profile_override = None
+
+        if role == "freelancer":
+            freelancer, _ = Freelancer.objects.get_or_create(user_id=user)
+            if "hourly_rate" in request.data:
+                freelancer.hourly_rate = request.data.get("hourly_rate") or None
+            if "professional_level" in request.data:
+                freelancer.professional_level = request.data.get("professional_level") or ""
+            if "description" in request.data:
+                freelancer.description = request.data.get("description") or ""
+            freelancer.save()
+            profile_override = freelancer
+
+            if "skills" in request.data:
+                self._replace_freelancer_skills(freelancer, request.data.get("skills") or [])
+
+        elif role == "publisher":
+            publisher, _ = Publisher.objects.get_or_create(user_id=user)
+            if "company_name" in request.data:
+                publisher.company_name = request.data.get("company_name") or ""
+            if "company_document" in request.data:
+                publisher.cnpj = request.data.get("company_document") or ""
+            elif "cnpj" in request.data:
+                publisher.cnpj = request.data.get("cnpj") or ""
+            publisher.save()
+            profile_override = publisher
+        else:
+            return Response({"error": "Perfil de usuario nao configurado."}, status=400)
+
+        return Response(self._serialize_user(user, profile_override=profile_override))
+
+    def _serialize_user(self, user, profile_override=None):
         first_name = (user.name or "").strip()
         last_name = (user.last_name or "").strip()
         display_name = " ".join(filter(None, [first_name, last_name]))
@@ -205,17 +242,70 @@ class UserMeView(APIView):
         if not display_name:
             display_name = (user.email or "").split("@")[0]
 
-        return Response(
-            {
-                "id": user.id,
-                "email": user.email,
-                "first_name": first_name,
-                "last_name": last_name,
-                "display_name": display_name,
-                "role": user.role.role_name if user.role else None,
-                "profile_img": user.profile_img.url if user.profile_img else None,
-            }
-        )
+        payload = {
+            "id": user.id,
+            "email": user.email,
+            "first_name": first_name,
+            "last_name": last_name,
+            "display_name": display_name,
+            "role": user.role.role_name if user.role else None,
+            "profile_img": user.profile_img.url if user.profile_img else None,
+        }
+
+        if payload["role"] == "freelancer" and (
+            profile_override is not None or hasattr(user, "freelancer_profile")
+        ):
+            freelancer = profile_override or user.freelancer_profile
+            payload.update(
+                {
+                    "hourly_rate": str(freelancer.hourly_rate) if freelancer.hourly_rate else None,
+                    "professional_level": freelancer.professional_level,
+                    "description": freelancer.description,
+                    "skills": [
+                        {
+                            "name": item.skill.skill_name,
+                            "level": item.skill_level,
+                        }
+                        for item in freelancer.skills.select_related("skill").all()
+                    ],
+                }
+            )
+
+        if payload["role"] == "publisher" and (
+            profile_override is not None or hasattr(user, "publisher_profile")
+        ):
+            publisher = profile_override or user.publisher_profile
+            payload.update(
+                {
+                    "company_name": publisher.company_name,
+                    "company_document": publisher.cnpj,
+                }
+            )
+
+        return payload
+
+    def _replace_freelancer_skills(self, freelancer, skills):
+        FreelancerSkill.objects.filter(freelancer=freelancer).delete()
+        for item in skills:
+            if isinstance(item, str):
+                name = item.strip()
+                level = FreelancerSkill.SkillLevel.INTERMEDIATE
+            else:
+                name = str(item.get("name", "")).strip()
+                level = item.get("level") or FreelancerSkill.SkillLevel.INTERMEDIATE
+
+            if not name:
+                continue
+
+            skill, _ = Skill.objects.get_or_create(
+                skill_slug=slugify(name),
+                defaults={"skill_name": name},
+            )
+            FreelancerSkill.objects.update_or_create(
+                freelancer=freelancer,
+                skill=skill,
+                defaults={"skill_level": level},
+            )
 
 
 class SkillListView(APIView):
@@ -328,6 +418,13 @@ class PublisherProfileView(APIView):
             )
 
         user = publisher.user_id
+        is_saved = False
+        if request.user.is_authenticated:
+            is_saved = SavedProfile.objects.filter(
+                user=request.user,
+                saved_user=user,
+            ).exists()
+
         opportunities = (
             Opportunity.objects.filter(publisher=publisher)
             .select_related("publisher__user_id", "category")
@@ -343,6 +440,7 @@ class PublisherProfileView(APIView):
                 "profile_img": user.profile_img.url if user.profile_img else None,
                 "company_name": publisher.company_name,
                 "mean_eval": str(publisher.mean_eval),
+                "is_saved": is_saved,
                 "opportunities": OpportunityListSerializer(opportunities, many=True).data,
             }
         )
@@ -361,6 +459,13 @@ class FreelancerProfileView(APIView):
             )
 
         user = freelancer.user_id
+        is_saved = False
+        if request.user.is_authenticated:
+            is_saved = SavedProfile.objects.filter(
+                user=request.user,
+                saved_user=user,
+            ).exists()
+
         skills = (
             FreelancerSkill.objects.filter(freelancer=freelancer)
             .select_related("skill__category")
@@ -378,6 +483,7 @@ class FreelancerProfileView(APIView):
                 "hourly_rate": str(freelancer.hourly_rate) if freelancer.hourly_rate is not None else None,
                 "mean_eval": str(freelancer.mean_eval),
                 "finished_jobs": freelancer.finished_jobs,
+                "is_saved": is_saved,
                 "skills": [
                     {
                         "skill_id": item.skill.skill_id,

@@ -15,6 +15,30 @@ type AvatarImageProps = {
     fallbackClassName?: string;
 };
 
+const LOCAL_IMAGE_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function shouldSkipOptimization(src: string) {
+    if (src.includes("gravatar.com")) {
+        return true;
+    }
+
+    try {
+        const url = new URL(src);
+        return LOCAL_IMAGE_HOSTS.has(url.hostname);
+    } catch {
+        return false;
+    }
+}
+
+function isLocalBackendImage(src: string) {
+    try {
+        const url = new URL(src);
+        return LOCAL_IMAGE_HOSTS.has(url.hostname);
+    } catch {
+        return false;
+    }
+}
+
 export default function AvatarImage({
     email,
     profileImg,
@@ -29,6 +53,7 @@ export default function AvatarImage({
       resolveAvatarSrc(src) ?? getAvatarUrl(email ?? undefined, profileImg, size * 2);
 
     const hasError = failedSrc === avatarUrl;
+    const usePlainImage = isLocalBackendImage(avatarUrl);
 
     if (hasError) {
         return (
@@ -42,6 +67,24 @@ export default function AvatarImage({
         );
     }
 
+    if (usePlainImage) {
+        return (
+            // Local Docker media URLs must bypass Next's server-side image optimizer.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+                src={avatarUrl}
+                alt={alt}
+                width={size}
+                height={size}
+                className={`rounded-full object-cover ${className}`}
+                onError={() => setFailedSrc(avatarUrl)}
+                loading="lazy"
+                decoding="async"
+                style={{ width: size, height: size }}
+            />
+        );
+    }
+
     return (
         <Image
             src={avatarUrl}
@@ -50,7 +93,7 @@ export default function AvatarImage({
             height={size}
             className={`rounded-full object-cover ${className}`}
             onError={() => setFailedSrc(avatarUrl)}
-            unoptimized={avatarUrl.includes('gravatar.com')}
+            unoptimized={shouldSkipOptimization(avatarUrl)}
         />
     );
 }

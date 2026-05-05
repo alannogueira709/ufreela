@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronLeft, ImagePlus } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, type Variants } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { OnboardingFormData } from "./types";
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: {},
   visible: {
     transition: {
@@ -23,7 +23,7 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 18 },
   visible: {
     opacity: 1,

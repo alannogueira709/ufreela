@@ -89,6 +89,8 @@ INSTALLED_APPS = [
     "users",
     "jobs",
     "finances",
+    "settings_app",
+    "integrations",
 ]
 
 AUTH_USER_MODEL = "users.User"
@@ -146,6 +148,14 @@ DATABASES = {
 
 SITE_ID = 1
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET", "")
+LINKEDIN_CLIENT_ID = os.environ.get("LINKEDIN_CLIENT_ID", "")
+LINKEDIN_CLIENT_SECRET = os.environ.get("LINKEDIN_CLIENT_SECRET", "")
+LINKEDIN_API_VERSION = os.environ.get("LINKEDIN_API_VERSION", "202601")
+GITHUB_API_VERSION = os.environ.get("GITHUB_API_VERSION", "2026-03-10")
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
