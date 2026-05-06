@@ -157,7 +157,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[92vh] overflow-hidden p-0 gap-0 border-slate-200 dark:border-slate-800">
+      <DialogContent className="w-[900px] max-w-[95vw] max-h-[92vh] overflow-hidden p-0 gap-0 border-slate-200 dark:border-slate-800">
         <DialogHeader className="px-6 pt-6 pb-3 border-b">
           <div className="flex items-center justify-between">
             <div>
@@ -171,9 +171,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 Gerencie suas preferências e informações da conta
               </p>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="rounded-full">
-              <X className="h-5 w-5" />
-            </Button>
           </div>
         </DialogHeader>
 
@@ -182,7 +179,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="flex h-[calc(92vh-140px)] min-h-0">
+          <div className="flex h-[calc(92vh-140px)] min-h-[500px] min-h-0">
             <aside className="w-64 border-r bg-slate-50/50 dark:bg-slate-900/50 p-4 overflow-y-auto shrink-0">
               <nav className="space-y-1">
                 {tabs.map((tab) => {

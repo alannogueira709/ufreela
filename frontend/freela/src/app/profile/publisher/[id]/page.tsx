@@ -6,7 +6,6 @@ import { useParams } from "next/navigation";
 import { motion } from "motion/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,12 +14,15 @@ import Footer from "@/components/shared/Footer";
 import {
   ArrowUpRight,
   BadgeCheck,
+  BarChart3,
   Bookmark,
   Briefcase,
   Building2,
   CheckCircle,
   Clock,
   DollarSign,
+  Pencil,
+  Settings,
   Share2,
   Star,
   TrendingUp,
@@ -109,6 +111,8 @@ export default function PublisherProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
 
+  const isOwnProfile = !!user && user.id === userId;
+
   useEffect(() => {
     if (!userId) {
       setIsLoading(false);
@@ -149,7 +153,7 @@ export default function PublisherProfilePage() {
   const responsibleName = useMemo(() => {
     const firstName = profile?.name ?? "";
     const lastName = profile?.last_name ?? "";
-    return `${firstName} ${lastName}`.trim() || "Responsavel nao informado";
+    return `${firstName} ${lastName}`.trim() || "Responsável não informado";
   }, [profile]);
 
   const initials = useMemo(() => {
@@ -164,10 +168,6 @@ export default function PublisherProfilePage() {
   const handleSaveToggle = async () => {
     if (!user) {
       toast.error("Você precisa estar logado para salvar perfis.");
-      return;
-    }
-    if (user.id === userId) {
-      toast.error("Você não pode salvar a si mesmo.");
       return;
     }
 
@@ -192,7 +192,7 @@ export default function PublisherProfilePage() {
             <div className="relative h-44 animate-pulse bg-slate-200 lg:h-52" />
             <div className="relative px-8 pb-10 pt-4">
               <div className="absolute -top-16 flex items-end lg:-top-20">
-                <Skeleton className="h-32 w-32 rounded-lg border-4 border-white lg:h-40 lg:w-40" />
+                <Skeleton className="h-32 w-32 rounded-2xl border-4 border-white lg:h-40 lg:w-40" />
                 <div className="ml-5 pb-2">
                   <Skeleton className="mb-2 h-8 w-48" />
                   <Skeleton className="h-5 w-32" />
@@ -221,104 +221,137 @@ export default function PublisherProfilePage() {
       <main className="mx-auto max-w-7xl px-6 pb-20 pt-8 lg:px-8">
         <motion.div {...fadeUp(0)}>
           <Card className="overflow-hidden rounded-3xl border-0 shadow-[0_24px_64px_-20px_rgba(15,23,42,0.1)]">
-            <div className="relative h-44 bg-linear-to-br from-slate-800 via-slate-700 to-slate-900 lg:h-52">
+            {/* Banner — mesmo gradiente do freelancer mas com tom índigo para diferenciar */}
+            <div
+              className="relative h-48 overflow-hidden lg:h-56"
+              style={{
+                background: "linear-gradient(135deg, #312e81 0%, #4f46e5 50%, #818cf8 100%)",
+              }}
+            >
               <div
-                className="absolute inset-0 opacity-20"
+                className="absolute inset-0"
                 style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 20% 50%, rgba(99,102,241,.6) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(37,99,235,.5) 0%, transparent 45%)",
+                  background:
+                    "radial-gradient(circle at 20% 25%, rgba(255,255,255,0.22), transparent 34%), radial-gradient(circle at 80% 0%, rgba(255,255,255,0.15), transparent 28%)",
                 }}
               />
-              <div className="absolute right-6 top-5 flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsShareOpen(true)}
-                  className="h-9 rounded-full border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
-                >
-                  <Share2 size={13} className="mr-1.5" />
-                  Compartilhar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSaveToggle}
-                  disabled={isSaving}
-                  className={`h-9 rounded-full border-white/30 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30 ${isSaved ? 'bg-white/40' : 'bg-white/20'}`}
-                >
-                  <Bookmark size={13} className={`mr-1.5 ${isSaved ? 'fill-current' : ''}`} />
-                  {isSaved ? "Salvo" : "Salvar"}
-                </Button>
+              <div className="absolute right-6 top-5 z-10 flex gap-2">
+                {isOwnProfile ? (
+                  <Link
+                    href={`/profile/publisher/${userId}/settings`}
+                    className="inline-flex h-9 items-center gap-2 rounded-full border border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+                  >
+                    <Pencil size={13} />
+                    Editar perfil
+                  </Link>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsShareOpen(true)}
+                      className="h-9 rounded-full border-white/30 bg-white/20 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
+                    >
+                      <Share2 size={13} className="mr-1.5" />
+                      Compartilhar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSaveToggle}
+                      disabled={isSaving}
+                      className={`h-9 rounded-full border-white/30 px-4 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30 ${isSaved ? "bg-white/40" : "bg-white/20"}`}
+                    >
+                      <Bookmark size={13} className={`mr-1.5 ${isSaved ? "fill-current" : ""}`} />
+                      {isSaved ? "Salvo" : "Salvar"}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
-            <CardContent className="relative -mt-16 px-8 pb-8">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
-                <div className="relative w-fit">
-                  <Avatar className="h-28 w-28 rounded-2xl border-4 border-white shadow-[0_16px_48px_-12px_rgba(15,23,42,0.2)]">
-                    <AvatarImage src={getAvatarUrl(profile?.email, profile?.profile_img)} className="w-full h-full object-cover" />
-                    <AvatarFallback className="rounded-2xl bg-indigo-100 text-xl font-bold text-indigo-700">
-                      {initials || "PB"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 ring-2 ring-white">
-                    <BadgeCheck size={14} className="text-white" />
-                  </span>
-                </div>
-
-                <div className="flex-1 pb-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-[1.9rem] font-bold tracking-tight text-slate-950">
-                      {companyName}
-                    </h1>
-                    <Badge className="rounded-full bg-blue-50 px-3 py-0.5 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
-                      Perfil Publico
-                    </Badge>
-                  </div>
-                  <p className="mt-0.5 text-[15px] text-slate-500">
-                    Responsavel: {responsibleName}
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-4">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
-                      <Building2 size={13} />
-                      Empresa cadastrada na plataforma
+            {/* Info section */}
+            <CardContent className="px-6 pb-8 pt-0 sm:px-8">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                {/* Left: Avatar + Info */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                  {/* Avatar */}
+                  <div className="relative -mt-14 shrink-0 self-start sm:-mt-16">
+                    <div className="rounded-2xl bg-white p-1.5 shadow-[0_16px_48px_-12px_rgba(15,23,42,0.22)]">
+                      <Avatar className="h-24 w-24 rounded-2xl border-0 sm:h-28 sm:w-28">
+                        <AvatarImage
+                          src={getAvatarUrl(profile?.email, profile?.profile_img)}
+                          className="h-full w-full rounded-2xl object-cover"
+                        />
+                        <AvatarFallback className="rounded-2xl bg-indigo-100 text-xl font-bold text-indigo-700">
+                          {initials || "PB"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 ring-2 ring-white">
+                      <BadgeCheck size={14} className="text-white" />
                     </span>
-                    <StarRating rating={Number(profile?.mean_eval ?? 0)} size={13} />
+                  </div>
+
+                  {/* Name and details */}
+                  <div className="pt-0 sm:pb-2 sm:pt-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="text-[1.75rem] font-bold tracking-tight text-slate-950 sm:text-[1.9rem]">
+                        {companyName}
+                      </h1>
+                    </div>
+                    <p className="mt-0.5 text-[15px] text-slate-600">
+                      Responsável: {responsibleName}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-4">
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                        <Building2 size={13} />
+                        Empresa cadastrada na plataforma
+                      </span>
+                      <StarRating rating={Number(profile?.mean_eval ?? 0)} size={13} />
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 pb-1">
-                  <Button
-                    variant="outline"
-                    className="h-11 rounded-full border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                  >
-                    Contato
-                  </Button>
-                  <Button className="h-11 rounded-full bg-blue-600 px-7 text-sm font-semibold text-white shadow-[0_8px_28px_-8px_rgba(37,99,235,.5)] hover:bg-blue-700">
-                    Publicar Vaga
-                    <ArrowUpRight size={15} className="ml-1" />
-                  </Button>
+                {/* Right: Action buttons */}
+                <div className="flex gap-2.5 pt-0 sm:pt-4">
+                  {isOwnProfile ? (
+                    <Link
+                      href={`/profile/publisher/${userId}/settings`}
+                      className="inline-flex h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
+                    >
+                      <Settings size={16} />
+                      Configurações
+                    </Link>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        className="h-11 rounded-full border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        Contato
+                      </Button>
+                      <Button className="h-11 rounded-full bg-indigo-600 px-7 text-sm font-semibold text-white shadow-[0_8px_28px_-8px_rgba(79,70,229,.5)] hover:bg-indigo-700">
+                        Publicar Vaga
+                        <ArrowUpRight size={15} className="ml-1" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
-        <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_300px]">
+        <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_320px]">
           <div className="space-y-7">
             <EmptySection
               title="Sobre a Empresa"
-              description="Ainda nao existem detalhes adicionais cadastrados para esta empresa no banco de dados."
+              description="Ainda não existem detalhes adicionais cadastrados para esta empresa no banco de dados."
               delay={0.08}
             />
 
-            <EmptySection
-              title="Workflow Ativo"
-              description="Nao ha workflow publico cadastrado para este perfil. Os cards e colunas mockados foram removidos para refletir apenas dados reais."
-              delay={0.14}
-            />
-
-            <motion.div {...fadeUp(0.2)}>
+            <motion.div {...fadeUp(0.14)}>
               <Card className="rounded-3xl border-0 shadow-[0_16px_48px_-16px_rgba(15,23,42,0.07)]">
                 <CardContent className="p-8">
                   <h2 className="text-base font-bold text-slate-900">
@@ -330,7 +363,7 @@ export default function PublisherProfilePage() {
                         <Link
                           key={opportunity.opportunity_id}
                           href={`/jobs/${opportunity.opportunity_id}`}
-                          className="block rounded-2xl bg-slate-50 px-4 py-4 transition-colors hover:bg-blue-50"
+                          className="block rounded-2xl bg-slate-50 px-4 py-4 transition-colors hover:bg-indigo-50"
                         >
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
@@ -341,7 +374,7 @@ export default function PublisherProfilePage() {
                                 {opportunity.category?.category_name ?? "Sem categoria"}
                               </p>
                             </div>
-                            <span className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                            <span className="w-fit rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
                               {opportunity.status === "open" ? "Aberta" : "Fechada"}
                             </span>
                           </div>
@@ -350,15 +383,22 @@ export default function PublisherProfilePage() {
                     </div>
                   ) : (
                     <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
-                      Este publisher ainda nao possui oportunidades publicadas.
+                      Este publisher ainda não possui oportunidades publicadas.
                     </p>
                   )}
                 </CardContent>
               </Card>
             </motion.div>
+
+            <EmptySection
+              title="Histórico de Contratações"
+              description="O histórico de projetos e avaliações ainda não está disponível para este perfil."
+              delay={0.2}
+            />
           </div>
 
           <div className="space-y-6 lg:sticky lg:top-24">
+            {/* Stats card */}
             <motion.div {...fadeRight(0.1)}>
               <Card className="overflow-hidden rounded-3xl border-0 bg-slate-950 shadow-[0_24px_64px_-16px_rgba(15,23,42,0.3)]">
                 <CardContent className="p-7">
@@ -367,7 +407,7 @@ export default function PublisherProfilePage() {
                       { label: "Jobs Publicados", value: "N/D", icon: Briefcase },
                       { label: "Total Investido", value: "N/D", icon: DollarSign },
                       {
-                        label: "Avaliacao Media",
+                        label: "Avaliação Média",
                         value: String(profile?.mean_eval ?? "0"),
                         icon: TrendingUp,
                       },
@@ -375,7 +415,7 @@ export default function PublisherProfilePage() {
                       <div key={stat.label} className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10">
-                            <stat.icon size={16} className="text-blue-400" />
+                            <stat.icon size={16} className="text-indigo-400" />
                           </div>
                           <span className="text-[13px] font-medium text-slate-400">
                             {stat.label}
@@ -394,53 +434,31 @@ export default function PublisherProfilePage() {
                       <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
                     </span>
                     <span className="text-[12px] font-medium text-slate-400">
-                      Resumo exibindo apenas dados reais do perfil
+                      Exibindo apenas dados reais do perfil
                     </span>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
 
+            {/* Info card */}
             <motion.div {...fadeRight(0.16)}>
               <Card className="rounded-3xl border-0 shadow-[0_16px_48px_-16px_rgba(15,23,42,0.07)]">
                 <CardContent className="p-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="rounded-2xl bg-slate-50 p-4 text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        Avaliacao
-                      </p>
-                      <p className="mt-2 text-2xl font-bold text-slate-900">
-                        {Number(profile?.mean_eval ?? 0).toFixed(1)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-blue-600 p-4 text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-200">
-                        Cadastro
-                      </p>
-                      <p className="mt-2 text-2xl font-bold text-white">OK</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div {...fadeRight(0.22)}>
-              <Card className="rounded-3xl border-0 shadow-[0_16px_48px_-16px_rgba(15,23,42,0.07)]">
-                <CardContent className="p-6">
                   <h3 className="text-sm font-bold text-slate-900">
-                    Disponibilidade
+                    Informações
                   </h3>
                   <div className="mt-4 space-y-3">
                     {[
                       {
                         icon: CheckCircle,
-                        text: "Perfil publico disponivel",
+                        text: "Perfil público disponível",
                         color: "text-emerald-500",
                       },
                       {
                         icon: Clock,
                         text: "Sem prazo de resposta cadastrado",
-                        color: "text-blue-500",
+                        color: "text-indigo-500",
                       },
                       {
                         icon: Users,
@@ -459,12 +477,43 @@ export default function PublisherProfilePage() {
                 </CardContent>
               </Card>
             </motion.div>
+
+            {/* Actions card — only for visitors */}
+            {!isOwnProfile && (
+              <motion.div {...fadeRight(0.22)}>
+                <Card className="rounded-3xl border-0 shadow-[0_16px_48px_-16px_rgba(15,23,42,0.07)]">
+                  <CardContent className="p-4">
+                    <button
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                      onClick={() => setIsShareOpen(true)}
+                    >
+                      <Share2 size={15} className="text-indigo-600" />
+                      Compartilhar Perfil
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                      onClick={handleSaveToggle}
+                    >
+                      <Bookmark size={15} className="text-indigo-600" />
+                      {isSaved ? "Remover dos Salvos" : "Salvar Perfil"}
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                      onClick={() => console.log("Ver resumo")}
+                    >
+                      <BarChart3 size={15} className="text-indigo-600" />
+                      Ver resumo público
+                    </button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </div>
         </div>
       </main>
 
       <Footer />
-      <ShareDialog 
+      <ShareDialog
         isOpen={isShareOpen}
         onClose={() => setIsShareOpen(false)}
         url={typeof window !== "undefined" ? window.location.href : ""}
