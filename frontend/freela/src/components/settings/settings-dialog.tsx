@@ -157,7 +157,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-hidden p-0 gap-0 border-slate-200 dark:border-slate-800">
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-hidden p-0 gap-0 border-slate-200 dark:border-slate-800">
         <DialogHeader className="px-6 pt-6 pb-3 border-b">
           <div className="flex items-center justify-between">
             <div>
@@ -182,7 +182,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="flex h-[calc(92vh-140px)]">
+          <div className="flex h-[calc(92vh-140px)] min-h-0">
             <aside className="w-64 border-r bg-slate-50/50 dark:bg-slate-900/50 p-4 overflow-y-auto shrink-0">
               <nav className="space-y-1">
                 {tabs.map((tab) => {
@@ -219,7 +219,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               </div>
             </aside>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 min-w-0 overflow-y-auto">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
