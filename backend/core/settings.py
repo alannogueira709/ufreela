@@ -68,6 +68,7 @@ def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None
 
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.sites",
@@ -91,6 +92,8 @@ INSTALLED_APPS = [
     "finances",
     "settings_app",
     "integrations",
+    "messages.apps.MessagesConfig",
+    "channels",
 ]
 
 AUTH_USER_MODEL = "users.User"
@@ -247,10 +250,22 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
 ]
 
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [(os.environ.get("REDIS_HOST", "redis"), int(os.environ.get("REDIS_PORT", 6379)))],
+        },
+    },
+}
+
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
+
+ASGI_APPLICATION = 'core.asgi.application'
 
 STATIC_URL = "static/"
 

@@ -8,6 +8,11 @@ services:
       - POSTGRES_USER=freela_user
       - POSTGRES_PASSWORD=freela_pass
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
   backend:
     build:
       context: ./backend
@@ -20,6 +25,7 @@ services:
       - ./backend/.env
     depends_on:
       - db
+      - redis
 
   frontend:
     build:
