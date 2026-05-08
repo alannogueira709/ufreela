@@ -31,14 +31,20 @@ class ConversationListView(generics.ListCreateAPIView):
             )
         other_user = get_object_or_404(User, id=other_user_id)
 
-        u1, u2 = sorted([request.user.id, int(other_user_id)])
+        u1_str = str(request.user.id)
+        u2_str = str(other_user.id)
+
+        u1, u2 = sorted([u1_str, u2_str])
+        
+        user1_obj = request.user if u1 == u1_str else other_user
+        user2_obj = other_user if u1 == u1_str else request.user
 
         conversation, created = Conversation.objects.get_or_create(
             user1_id=u1,
             user2_id=u2,
             defaults={
-                "user1": request.user if u1 == request.user.id else other_user,
-                "user2": other_user if u1 == request.user.id else request.user
+                "user1": user1_obj,
+                "user2": user2_obj
             }
         )
 

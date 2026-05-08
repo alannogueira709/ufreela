@@ -144,6 +144,7 @@ export default function Navbar({ role }: NavbarProps) {
                 <motion.button
                   whileHover={{ y: -1, scale: 1.02 }}
                   whileTap={{ scale: 0.96 }}
+                  onClick={() => router.push('/messages')}
                   className="hidden rounded-full border border-white/35 bg-white/35 p-2 text-slate-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/55 hover:text-slate-900 md:inline-flex"
                 >
                   <MessageSquare size={20} />

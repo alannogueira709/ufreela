@@ -54,6 +54,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
+    @database_sync_to_async
+    def save_message_and_serialize(self, content):
+        conversation = Conversation.objects.get(id=self.conversation_id)
+        message = Message.objects.create(
+            conversation=conversation,
+            sender=self.user,
+            content=content
+        )
+        from .serializers import MessageSerializer
+        return MessageSerializer(message).data
+
     async def receive(self, text_data):
         data = json.loads(text_data)
         message_content = data.get('message', '').strip()
@@ -61,34 +72,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not message_content:
             return
 
-        # Salva no banco
-        message = await self.save_message(message_content)
+        # Salva no banco e serializa com MessageSerializer
+        message_data = await self.save_message_and_serialize(message_content)
         
         # Envia para o grupo
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat_message',
-                'message': {
-                    'id': message.id,
-                    'content': message_content,
-                    'sender': {
-                        'id': self.user.id,
-                        'username': self.user.username,
-                    },
-                    'timestamp': str(message.timestamp),
-                    'is_read': False,
-                }
+                'message': message_data
             }
-        )
-
-    @database_sync_to_async
-    def save_message(self, content):
-        conversation = Conversation.objects.get(id=self.conversation_id)
-        return Message.objects.create(
-            conversation=conversation,
-            sender=self.user,
-            content=content
         )
 
     async def chat_message(self, event):

@@ -1,9 +1,11 @@
 export interface User{
     id: string;  // UUID
+    email?: string;
     username: string;
     first_name: string;
     last_name: string;
-    avatar_url: string | null;
+    profile_img?: string | null;
+    avatar_url?: string | null;
 }
 
 export interface Message{

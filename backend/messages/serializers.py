@@ -1,11 +1,13 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from .models import Conversation, Message
+
+User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
+        fields = ['id', 'email', 'username', 'first_name', 'last_name', 'profile_img']
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
@@ -28,7 +30,7 @@ class ConversationSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request:
             return 0
-        return obj.messages.filter(is_read=False).exlude(sender=request.user).count()
+        return obj.messages.filter(is_read=False).exclude(sender=request.user).count()
     
     class Meta:
         model = Conversation
