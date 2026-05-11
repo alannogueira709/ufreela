@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Message } from '@/types/chat';
 
-export const useChatSocket = (conversationId: number | null, token: string) => {
+export const useChatSocket = (conversationId: number | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const ws = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if (!conversationId || !token) return;
+    if (!conversationId) return;
 
-    const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'}/ws/chat/${conversationId}/?token=${token}`;
+    const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'}/ws/chat/${conversationId}/`;
     
     ws.current = new WebSocket(wsUrl);
 
@@ -25,7 +25,7 @@ export const useChatSocket = (conversationId: number | null, token: string) => {
     return () => {
       ws.current?.close();
     };
-  }, [conversationId, token]);
+  }, [conversationId]);
 
   const sendMessage = useCallback((content: string) => {
     if (ws.current?.readyState === WebSocket.OPEN) {

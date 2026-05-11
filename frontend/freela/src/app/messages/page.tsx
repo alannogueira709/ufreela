@@ -9,11 +9,12 @@ import { Conversation, User } from '@/types/chat';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { getMyFreelancerProposals } from '@/lib/proposal-service';
 import { OpportunityPublisher } from '@/types/opportunity';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ChatPage() {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [token, setToken] = useState('');
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   
@@ -37,14 +38,13 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    setToken(localStorage.getItem('access_token') || '');
-    const userId = localStorage.getItem('user_id') || '';
-    setCurrentUserId(userId);
-    
-    if (userId) {
+    if (user?.id) {
+      setCurrentUserId(user.id.toString());
       loadConversations();
+    } else if (!isAuthLoading) {
+      setIsLoading(false);
     }
-  }, []);
+  }, [user?.id, isAuthLoading]);
 
   const loadEligiblePublishers = async () => {
     setIsLoadingPublishers(true);
@@ -121,13 +121,11 @@ export default function ChatPage() {
               setIsNewChatOpen(open);
               if (open) loadEligiblePublishers();
             }}>
-              <DialogTrigger asChild>
-                <button 
-                  className="text-slate-500 hover:text-blue-600 bg-white border shadow-sm p-1.5 rounded-md transition-colors"
-                  title="Nova Conversa"
-                >
-                  <MessageSquarePlus size={18} />
-                </button>
+              <DialogTrigger
+                className="text-slate-500 hover:text-blue-600 bg-white border shadow-sm p-1.5 rounded-md transition-colors"
+                title="Nova Conversa"
+              >
+                <MessageSquarePlus size={18} />
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
@@ -261,7 +259,6 @@ export default function ChatPage() {
             <ChatWindow 
               conversationId={conversationId} 
               currentUserId={currentUserId}
-              token={token}
               otherUser={selectedConversation ? getOtherUser(selectedConversation) : null}
             />
           ) : (

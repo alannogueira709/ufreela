@@ -10,17 +10,15 @@ import { getAvatarUrl } from '@/lib/avatar';
 interface ChatWindowProps {
   conversationId: number;
   currentUserId: string;
-  token: string;
   otherUser: User | null;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ 
   conversationId, 
   currentUserId,
-  token,
   otherUser
 }) => {
-  const { messages, isConnected, sendMessage, setMessages } = useChatSocket(conversationId, token);
+  const { messages, isConnected, sendMessage, setMessages } = useChatSocket(conversationId);
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);

@@ -69,6 +69,7 @@ def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None
 
 INSTALLED_APPS = [
     "daphne",
+    "django_extensions",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.sites",

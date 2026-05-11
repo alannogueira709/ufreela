@@ -14,16 +14,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
         query_string = self.scope['query_string'].decode()
         token = self._extract_token(query_string)
         
+        if not token and 'cookies' in self.scope:
+            token = self.scope['cookies'].get('access_token', '')
+
         self.user = await self.get_user_from_token(token)
+        print(f"DEBUG CHAT: User extracted from token: {self.user}", flush=True)
         
         if isinstance(self.user, AnonymousUser):
+            print("DEBUG CHAT: User is anonymous. Closing.", flush=True)
             await self.close()
             return
 
         # Verifica se o usuário pertence à conversa
-        if not await self.is_participant():
+        is_part = await self.is_participant()
+        print(f"DEBUG CHAT: Is participant: {is_part}", flush=True)
+        if not is_part:
+            print("DEBUG CHAT: Not participant. Closing.", flush=True)
             await self.close()
             return
+
+        print("DEBUG CHAT: Connection accepted.", flush=True)
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
@@ -66,23 +76,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return MessageSerializer(message).data
 
     async def receive(self, text_data):
-        data = json.loads(text_data)
-        message_content = data.get('message', '').strip()
-        
-        if not message_content:
-            return
+        print(f"DEBUG CHAT: Received message: {text_data}", flush=True)
+        try:
+            data = json.loads(text_data)
+            message_content = data.get('message', '').strip()
+            
+            if not message_content:
+                return
 
-        # Salva no banco e serializa com MessageSerializer
-        message_data = await self.save_message_and_serialize(message_content)
+            # Salva no banco e serializa com MessageSerializer
+            message_data = await self.save_message_and_serialize(message_content)
+            print(f"DEBUG CHAT: Message saved: {message_data}", flush=True)
+            
+            # Envia para o grupo
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'chat_message',
+                    'message': message_data
+                }
+            )
+        except Exception as e:
+            print(f"DEBUG CHAT: Error in receive: {e}", flush=True)
         
-        # Envia para o grupo
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'chat_message',
-                'message': message_data
-            }
-        )
+
 
     async def chat_message(self, event):
         # Envia para o WebSocket do cliente
