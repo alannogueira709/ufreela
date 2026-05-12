@@ -42,6 +42,7 @@ services:
       - NODE_OPTIONS=--max-old-space-size=2048
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51TU8o9APTCG5nRHKZYCDHbI36x9WSDUG7SddK7KBET2GzuOQ4qf6fl1cZQMWHBbKjBKMyyo0o9wEOQisnw8554mK00fhxv1ViT
     depends_on:
       - backend         
 

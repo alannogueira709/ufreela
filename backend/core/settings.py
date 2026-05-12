@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     "settings_app",
     "integrations",
     "messages.apps.MessagesConfig",
+    "notifications",
     "channels",
 ]
 

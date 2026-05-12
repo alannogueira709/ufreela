@@ -25,11 +25,8 @@ export default async function Login() {
 
             <div className="relative flex h-full min-h-[640px] flex-col justify-between p-8 lg:min-h-[720px] lg:p-10">
               <div>
-                <div className="inline-flex items-center rounded-md bg-white px-4 py-2 shadow-sm">
-                  <span className="font-heading text-2xl font-bold tracking-tight text-slate-950">
-                    uFreela<span className="text-blue-600">.</span>
-                  </span>
-                </div>
+                {/* <div className="inline-flex items-center rounded-md bg-white px-4 py-2 shadow-sm">
+                </div> */}
               </div>
 
               <div className="max-w-md space-y-5 text-white">
