@@ -155,7 +155,7 @@ export const billingApi = {
     });
     return response.data;
   },
-  async createPaymentIntent(payload: { job_id: string; freelancer_id: string; amount: number }) {
+  async createPaymentIntent(payload: { proposal_id: string | number }) {
     const response = await api.post<{ client_secret: string; payment_intent_id: string }>(
       "/billing/payment-intent/",
       payload

@@ -1,15 +1,14 @@
-from decimal import Decimal
-from uuid import UUID
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
+from django.db import transaction as db_transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from jobs.models import Opportunity
-from users.models import User
+from jobs.models import Opportunity, Proposal
 
 from .models import Contract, StripeAccount, Transaction
 from .serializers import DashboardContractSerializer, StripeAccountSerializer, TransactionSerializer
@@ -29,15 +28,152 @@ def _stripe():
     return stripe
 
 
+PLATFORM_FEE_RATE = Decimal("0.15")
+
+
+def _money_to_cents(value: Decimal) -> int:
+    return int((Decimal(value) * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def _create_account_link(stripe_client, account_id: str):
+    return stripe_client.AccountLink.create(
+        account=account_id,
+        refresh_url=f"{settings.FRONTEND_URL}/settings?tab=billing&error=true",
+        return_url=f"{settings.FRONTEND_URL}/settings?tab=billing&success=true",
+        type="account_onboarding",
+    )
+
+
+def _sync_stripe_account_status(account: StripeAccount) -> StripeAccount:
+    stripe_acc = _stripe().Account.retrieve(account.stripe_account_id)
+    requirements = getattr(stripe_acc, "requirements", None)
+    currently_due = getattr(requirements, "currently_due", []) if requirements else []
+    account.charges_enabled = bool(stripe_acc.charges_enabled)
+    account.payouts_enabled = bool(stripe_acc.payouts_enabled)
+    account.requirements_due = list(currently_due)
+    account.status = (
+        StripeAccount.Status.ACTIVE
+        if account.payouts_enabled
+        else StripeAccount.Status.PENDING
+    )
+    account.save()
+    return account
+
+
+def _get_proposal_for_checkout(proposal_id):
+    try:
+        normalized_id = int(proposal_id)
+    except (TypeError, ValueError):
+        return None
+
+    try:
+        return (
+            Proposal.objects.select_related(
+                "freelancer__user_id",
+                "opportunity__publisher__user_id",
+                "opportunity",
+            )
+            .get(pk=normalized_id)
+        )
+    except Proposal.DoesNotExist:
+        return None
+
+
+def _create_contract_from_paid_proposal(proposal: Proposal) -> Contract:
+    proposal.status = Proposal.Status.ACCEPTED
+    proposal.save(update_fields=["status", "updated_at"])
+
+    Opportunity.objects.filter(pk=proposal.opportunity_id).update(
+        status=Opportunity.Status.CLOSED,
+    )
+    Proposal.objects.filter(
+        opportunity=proposal.opportunity,
+        status=Proposal.Status.PENDING,
+    ).exclude(pk=proposal.pk).update(status=Proposal.Status.REJECTED)
+
+    contract, _ = Contract.objects.get_or_create(
+        proposal=proposal,
+        defaults={
+            "start_date": timezone.localdate(),
+            "end_date": proposal.opportunity.deadline,
+            "total_value": proposal.proposed_value,
+            "status": Contract.Status.ACTIVE,
+        },
+    )
+    return contract
+
+
+def _release_escrow(contract: Contract):
+    if contract.escrow_released_at:
+        return None
+
+    proposal = contract.proposal
+    freelancer_user = proposal.freelancer.user_id
+
+    try:
+        freelancer_account = StripeAccount.objects.get(
+            user=freelancer_user,
+            payouts_enabled=True,
+        )
+    except StripeAccount.DoesNotExist as exc:
+        raise ValueError("Freelancer sem conta Stripe habilitada para receber fundos.") from exc
+
+    payment = (
+        Transaction.objects.filter(
+            freelancer=freelancer_user,
+            job_id=str(proposal.opportunity_id),
+            status=Transaction.Status.COMPLETED,
+            type=Transaction.Type.PAYMENT,
+            metadata__proposal_id=str(proposal.proposal_id),
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if payment is None:
+        raise ValueError("Pagamento em escrow nao encontrado para este contrato.")
+
+    if payment.stripe_transfer_id:
+        return payment.stripe_transfer_id
+
+    transfer = _stripe().Transfer.create(
+        amount=_money_to_cents(payment.freelancer_amount),
+        currency="brl",
+        destination=freelancer_account.stripe_account_id,
+        metadata={
+            "contract_id": str(contract.contract_id),
+            "proposal_id": str(proposal.proposal_id),
+            "transaction_id": str(payment.id),
+        },
+        idempotency_key=f"contract-{contract.contract_id}-escrow-release",
+    )
+
+    payment.stripe_transfer_id = transfer.id
+    payment.save(update_fields=["stripe_transfer_id", "updated_at"])
+    return transfer.id
+
+
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
 def create_connect_account(request):
     user = request.user
-    if hasattr(user, "stripe_account"):
-        return Response({"error": "Account already exists"}, status=400)
+    if not getattr(user, "role", None) or user.role.role_name != "freelancer":
+        return Response({"error": "Apenas freelancers podem configurar recebimentos."}, status=403)
 
     try:
         stripe_client = _stripe()
+        existing_account = getattr(user, "stripe_account", None)
+        if existing_account:
+            account_link = _create_account_link(
+                stripe_client,
+                existing_account.stripe_account_id,
+            )
+            return Response(
+                {
+                    "account": StripeAccountSerializer(existing_account).data,
+                    "onboarding_url": account_link.url,
+                }
+            )
+
         account = stripe_client.Account.create(
             type="express",
             country=request.data.get("country", "BR"),
@@ -57,12 +193,7 @@ def create_connect_account(request):
             currency="brl" if account.country == "BR" else "usd",
         )
 
-        account_link = stripe_client.AccountLink.create(
-            account=account.id,
-            refresh_url=f"{settings.FRONTEND_URL}/settings?tab=billing&error=true",
-            return_url=f"{settings.FRONTEND_URL}/settings?tab=billing&success=true",
-            type="account_onboarding",
-        )
+        account_link = _create_account_link(stripe_client, account.id)
 
         return Response(
             {
@@ -83,18 +214,7 @@ def get_account(request):
         return Response({"error": "No account found"}, status=404)
 
     try:
-        stripe_acc = _stripe().Account.retrieve(account.stripe_account_id)
-        requirements = getattr(stripe_acc, "requirements", None)
-        currently_due = getattr(requirements, "currently_due", []) if requirements else []
-        account.charges_enabled = bool(stripe_acc.charges_enabled)
-        account.payouts_enabled = bool(stripe_acc.payouts_enabled)
-        account.requirements_due = list(currently_due)
-        account.status = (
-            StripeAccount.Status.ACTIVE
-            if account.charges_enabled and account.payouts_enabled
-            else StripeAccount.Status.PENDING
-        )
-        account.save()
+        account = _sync_stripe_account_status(account)
     except Exception:
         pass
 
@@ -104,47 +224,39 @@ def get_account(request):
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
 def create_payment_intent(request):
-    job_id = request.data.get("job_id")
-    freelancer_id = request.data.get("freelancer_id")
+    proposal = _get_proposal_for_checkout(request.data.get("proposal_id"))
+    if proposal is None:
+        return Response({"error": "proposal_id invalido."}, status=400)
 
-    try:
-        amount = int(request.data.get("amount", 0))
-    except (TypeError, ValueError):
-        return Response({"error": "Invalid amount"}, status=400)
+    if proposal.opportunity.publisher.user_id_id != request.user.id:
+        return Response({"error": "Sem permissao para pagar esta proposta."}, status=403)
 
-    if amount <= 0:
-        return Response({"error": "Invalid amount"}, status=400)
+    if proposal.status != Proposal.Status.PENDING:
+        return Response({"error": "Apenas propostas pendentes podem iniciar pagamento."}, status=400)
 
-    if not freelancer_id:
-        return Response({"error": "freelancer_id is required"}, status=400)
+    if proposal.opportunity.deadline is None:
+        return Response({"error": "Defina uma data final para o contrato antes do pagamento."}, status=400)
 
-    try:
-        freelancer_uuid = UUID(str(freelancer_id))
-    except (TypeError, ValueError):
-        return Response({"error": "Invalid freelancer_id"}, status=400)
-
-    if not User.objects.filter(pk=freelancer_uuid).exists():
-        return Response({"error": "Freelancer not found"}, status=404)
-
-    normalized_job_id = str(job_id) if job_id not in (None, "") else None
-    if job_id not in (None, ""):
-        try:
-            opportunity_id = int(job_id)
-        except (TypeError, ValueError):
-            return Response({"error": "Invalid job_id"}, status=400)
-
-        if not Opportunity.objects.filter(pk=opportunity_id).exists():
-            return Response({"error": "Opportunity not found"}, status=404)
+    if proposal.opportunity.deadline < timezone.localdate():
+        return Response({"error": "A data final do contrato nao pode estar no passado."}, status=400)
 
     try:
         freelancer_account = StripeAccount.objects.get(
-            user_id=freelancer_uuid,
-            charges_enabled=True,
+            user=proposal.freelancer.user_id,
         )
     except StripeAccount.DoesNotExist:
-        return Response({"error": "Freelancer not ready for payments"}, status=400)
+        return Response({"error": "Freelancer not ready for payouts"}, status=400)
 
-    platform_fee = int(amount * 0.15)
+    try:
+        freelancer_account = _sync_stripe_account_status(freelancer_account)
+    except Exception:
+        pass
+
+    if not freelancer_account.payouts_enabled:
+        return Response({"error": "Freelancer not ready for payouts"}, status=400)
+
+    amount = _money_to_cents(proposal.proposed_value)
+    platform_fee = int((Decimal(amount) * PLATFORM_FEE_RATE).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     freelancer_amount = amount - platform_fee
 
     try:
@@ -152,28 +264,36 @@ def create_payment_intent(request):
             amount=amount,
             currency="brl",
             automatic_payment_methods={"enabled": True},
-            application_fee_amount=platform_fee,
-            transfer_data={"destination": freelancer_account.stripe_account_id},
             metadata={
-                "job_id": str(job_id or ""),
+                "proposal_id": str(proposal.proposal_id),
+                "job_id": str(proposal.opportunity_id),
                 "publisher_id": str(request.user.id),
-                "freelancer_id": str(freelancer_uuid),
+                "freelancer_id": str(proposal.freelancer.user_id_id),
+                "escrow": "true",
             },
+            idempotency_key=f"proposal-{proposal.proposal_id}-escrow-payment",
         )
     except Exception as exc:
         return Response({"error": str(exc)}, status=400)
 
-    Transaction.objects.create(
+    Transaction.objects.update_or_create(
         stripe_payment_intent_id=payment_intent.id,
-        publisher=request.user,
-        freelancer_id=freelancer_uuid,
-        job_id=normalized_job_id,
-        amount=Decimal(amount) / Decimal("100"),
-        platform_fee=Decimal(platform_fee) / Decimal("100"),
-        freelancer_amount=Decimal(freelancer_amount) / Decimal("100"),
-        type=Transaction.Type.PAYMENT,
-        description=f"Pagamento Job {normalized_job_id or 'sem oportunidade'}",
-        status=Transaction.Status.PENDING,
+        defaults={
+            "publisher": request.user,
+            "freelancer": proposal.freelancer.user_id,
+            "job_id": str(proposal.opportunity_id),
+            "amount": Decimal(amount) / Decimal("100"),
+            "platform_fee": Decimal(platform_fee) / Decimal("100"),
+            "freelancer_amount": Decimal(freelancer_amount) / Decimal("100"),
+            "type": Transaction.Type.PAYMENT,
+            "description": f"Escrow da proposta #{proposal.proposal_id}",
+            "status": Transaction.Status.PENDING,
+            "metadata": {
+                "proposal_id": str(proposal.proposal_id),
+                "opportunity_id": str(proposal.opportunity_id),
+                "escrow": True,
+            },
+        },
     )
 
     return Response(
@@ -239,18 +359,39 @@ def approve_contract_completion(request, contract_id):
     if contract.status != Contract.Status.ACTIVE:
         return Response({"error": "Apenas contratos ativos podem ser finalizados."}, status=400)
 
-    if is_freelancer:
-        contract.freelancer_completion_approved = True
-    if is_publisher:
-        contract.publisher_completion_approved = True
+    with db_transaction.atomic():
+        if is_freelancer:
+            contract.freelancer_completion_approved = True
+        if is_publisher:
+            contract.publisher_completion_approved = True
 
-    if contract.freelancer_completion_approved and contract.publisher_completion_approved:
-        now = timezone.now()
-        contract.status = Contract.Status.COMPLETED
-        contract.end_date = now.date()
-        contract.completed_at = now
+        should_release = (
+            contract.freelancer_completion_approved
+            and contract.publisher_completion_approved
+            and not contract.escrow_released_at
+        )
 
-    contract.save()
+        if should_release:
+            try:
+                _release_escrow(contract)
+            except ValueError as exc:
+                contract.save(
+                    update_fields=[
+                        "freelancer_completion_approved",
+                        "publisher_completion_approved",
+                        "updated_at",
+                    ]
+                )
+                return Response({"error": str(exc)}, status=400)
+
+            now = timezone.now()
+            contract.status = Contract.Status.COMPLETED
+            contract.completed_at = now
+            contract.escrow_released_at = now
+            if contract.end_date is None:
+                contract.end_date = now.date()
+
+        contract.save()
     return Response(DashboardContractSerializer(contract).data)
 
 
@@ -274,9 +415,23 @@ def stripe_webhook(request):
 
     if event["type"] == "payment_intent.succeeded":
         intent = event["data"]["object"]
-        Transaction.objects.filter(stripe_payment_intent_id=intent["id"]).update(
-            status=Transaction.Status.COMPLETED
-        )
+        with db_transaction.atomic():
+            payment = (
+                Transaction.objects.select_for_update()
+                .filter(stripe_payment_intent_id=intent["id"])
+                .first()
+            )
+            if payment:
+                payment.status = Transaction.Status.COMPLETED
+                payment.save(update_fields=["status", "updated_at"])
+
+                proposal_id = (
+                    str(intent.get("metadata", {}).get("proposal_id") or "")
+                    or payment.metadata.get("proposal_id")
+                )
+                proposal = _get_proposal_for_checkout(proposal_id)
+                if proposal and proposal.status == Proposal.Status.PENDING:
+                    _create_contract_from_paid_proposal(proposal)
     elif event["type"] == "payment_intent.payment_failed":
         intent = event["data"]["object"]
         Transaction.objects.filter(stripe_payment_intent_id=intent["id"]).update(

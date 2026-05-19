@@ -53,6 +53,7 @@ export function ProposalDetailsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [clientSecret, setClientSecret] = useState<string>("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     if (!proposalId) return;
@@ -79,10 +80,9 @@ export function ProposalDetailsPage() {
     try {
       setIsUpdating(true);
       setError("");
+      setSuccessMessage("");
       const res = await billingApi.createPaymentIntent({
-        job_id: proposal.opportunity.opportunity_id.toString(),
-        freelancer_id: proposal.freelancer.id,
-        amount: Math.round(Number(proposal.proposed_value) * 100),
+        proposal_id: proposalId,
       });
       setClientSecret(res.client_secret);
       setIsCheckoutOpen(true);
@@ -108,6 +108,12 @@ export function ProposalDetailsPage() {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const refreshProposal = async () => {
+    if (!proposalId) return;
+    const updated = await getProposalById(proposalId);
+    setProposal(updated);
   };
 
   const isPublisher = user?.role === "publisher";
@@ -147,6 +153,12 @@ export function ProposalDetailsPage() {
           {error && (
             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {successMessage}
             </div>
           )}
 
@@ -249,9 +261,12 @@ export function ProposalDetailsPage() {
               <CheckoutDialog
                 isOpen={isCheckoutOpen}
                 onOpenChange={setIsCheckoutOpen}
-                onSuccess={() => {
+                onSuccess={async () => {
                   setIsCheckoutOpen(false);
-                  handleUpdateStatus("accepted");
+                  setSuccessMessage(
+                    "Pagamento confirmado. O contrato sera ativado em instantes."
+                  );
+                  await refreshProposal();
                 }}
                 amountFormatted={formatCurrency(proposal?.proposed_value || 0)}
               />

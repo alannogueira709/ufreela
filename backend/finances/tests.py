@@ -1,7 +1,9 @@
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from finances.models import Contract, StripeAccount, Transaction
@@ -33,6 +35,11 @@ class FakeStripe:
         def create(**_kwargs):
             return SimpleNamespace(id="pi_123", client_secret="secret_123")
 
+    class Transfer:
+        @staticmethod
+        def create(**_kwargs):
+            return SimpleNamespace(id="tr_123")
+
     class Webhook:
         event_type = "payment_intent.succeeded"
         intent_id = "pi_123"
@@ -63,6 +70,23 @@ class BillingApiTests(TestCase):
             password="secret123",
             role=self.freelancer_role,
         )
+        self.publisher_profile = Publisher.objects.create(
+            user_id=self.publisher,
+            company_name="Acme",
+        )
+        self.freelancer_profile = Freelancer.objects.create(user_id=self.freelancer)
+        self.opportunity = Opportunity.objects.create(
+            publisher=self.publisher_profile,
+            title="Projeto escrow",
+            description="Construir fluxo de escrow.",
+            deadline=timezone.localdate() + timedelta(days=30),
+        )
+        self.proposal = Proposal.objects.create(
+            opportunity=self.opportunity,
+            freelancer=self.freelancer_profile,
+            proposed_value="100.00",
+            cover_letter="Posso entregar.",
+        )
 
     @patch("finances.views._stripe", return_value=FakeStripe)
     def test_create_connect_account(self, _stripe_mock):
@@ -86,7 +110,7 @@ class BillingApiTests(TestCase):
 
         response = self.client.post(
             "/api/billing/payment-intent/",
-            {"job_id": "1", "freelancer_id": str(self.freelancer.id), "amount": 10000},
+            {"proposal_id": self.proposal.proposal_id},
             format="json",
         )
 
@@ -94,23 +118,28 @@ class BillingApiTests(TestCase):
         self.assertEqual(response.json()["payment_intent_id"], "pi_123")
         self.assertEqual(Transaction.objects.count(), 1)
         self.assertEqual(Transaction.objects.first().amount, 100)
+        self.assertEqual(Transaction.objects.first().platform_fee, 15)
+        self.assertEqual(Transaction.objects.first().freelancer_amount, 85)
+        self.assertEqual(Transaction.objects.first().metadata["proposal_id"], str(self.proposal.proposal_id))
+        self.proposal.refresh_from_db()
+        self.assertEqual(self.proposal.status, Proposal.Status.PENDING)
 
     def test_create_payment_intent_rejects_invalid_payload(self):
         self.client.force_authenticate(self.publisher)
 
-        invalid_amount_response = self.client.post(
+        missing_proposal_response = self.client.post(
             "/api/billing/payment-intent/",
-            {"freelancer_id": str(self.freelancer.id), "amount": "invalid"},
+            {},
             format="json",
         )
-        invalid_freelancer_response = self.client.post(
+        invalid_proposal_response = self.client.post(
             "/api/billing/payment-intent/",
-            {"freelancer_id": "not-a-uuid", "amount": 10000},
+            {"proposal_id": "invalid"},
             format="json",
         )
 
-        self.assertEqual(invalid_amount_response.status_code, 400)
-        self.assertEqual(invalid_freelancer_response.status_code, 400)
+        self.assertEqual(missing_proposal_response.status_code, 400)
+        self.assertEqual(invalid_proposal_response.status_code, 400)
 
     @patch("finances.views._stripe", return_value=FakeStripe)
     def test_webhook_updates_transaction(self, _stripe_mock):
@@ -118,13 +147,14 @@ class BillingApiTests(TestCase):
             stripe_payment_intent_id="pi_123",
             publisher=self.publisher,
             freelancer=self.freelancer,
-            job_id="1",
+            job_id=str(self.opportunity.opportunity_id),
             amount="100.00",
             platform_fee="15.00",
             freelancer_amount="85.00",
             type=Transaction.Type.PAYMENT,
             status=Transaction.Status.PENDING,
-            description="Pagamento Job 1",
+            description="Escrow da proposta",
+            metadata={"proposal_id": str(self.proposal.proposal_id), "escrow": True},
         )
 
         response = self.client.post(
@@ -136,6 +166,11 @@ class BillingApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Transaction.objects.get().status, Transaction.Status.COMPLETED)
+        self.proposal.refresh_from_db()
+        self.assertEqual(self.proposal.status, Proposal.Status.ACCEPTED)
+        contract = Contract.objects.get(proposal=self.proposal)
+        self.assertEqual(contract.status, Contract.Status.ACTIVE)
+        self.assertEqual(contract.end_date, self.opportunity.deadline)
 
     def test_webhook_rejects_invalid_signature(self):
         class InvalidStripe(FakeStripe):
@@ -193,8 +228,27 @@ class ContractDashboardApiTests(TestCase):
         self.contract = Contract.objects.create(
             proposal=self.proposal,
             start_date="2026-05-03",
+            end_date="2026-06-03",
             total_value="1000.00",
             status=Contract.Status.ACTIVE,
+        )
+        StripeAccount.objects.create(
+            user=self.freelancer_user,
+            stripe_account_id="acct_contract",
+            payouts_enabled=True,
+        )
+        Transaction.objects.create(
+            stripe_payment_intent_id="pi_contract",
+            publisher=self.publisher_user,
+            freelancer=self.freelancer_user,
+            job_id=str(self.opportunity.opportunity_id),
+            amount="1000.00",
+            platform_fee="150.00",
+            freelancer_amount="850.00",
+            type=Transaction.Type.PAYMENT,
+            status=Transaction.Status.COMPLETED,
+            description="Escrow da proposta",
+            metadata={"proposal_id": str(self.proposal.proposal_id), "escrow": True},
         )
 
     def test_user_can_list_own_contracts(self):
@@ -206,7 +260,9 @@ class ContractDashboardApiTests(TestCase):
         self.assertEqual(len(response.json()), 1)
         self.assertEqual(response.json()[0]["contract_id"], str(self.contract.contract_id))
 
-    def test_contract_completes_only_after_both_parties_approve(self):
+    @override_settings(STRIPE_SECRET_KEY="sk_test")
+    @patch("finances.views._stripe", return_value=FakeStripe)
+    def test_contract_completes_only_after_both_parties_approve(self, _stripe_mock):
         self.client.force_authenticate(self.freelancer_user)
         first_response = self.client.post(f"/api/billing/contracts/{self.contract.contract_id}/complete/")
 
@@ -223,4 +279,5 @@ class ContractDashboardApiTests(TestCase):
         self.assertTrue(second_response.json()["publisher_completion_approved"])
         self.assertEqual(second_response.json()["status"], Contract.Status.COMPLETED)
         self.assertIsNotNone(second_response.json()["completed_at"])
-        self.assertIsNone(second_response.json()["escrow_released_at"])
+        self.assertIsNotNone(second_response.json()["escrow_released_at"])
+        self.assertEqual(Transaction.objects.get(stripe_payment_intent_id="pi_contract").stripe_transfer_id, "tr_123")
