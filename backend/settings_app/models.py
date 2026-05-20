@@ -13,7 +13,7 @@ class UserSettings(models.Model):
     LANG_CHOICES = [
         ("pt-BR", "Portugues (Brasil)"),
         ("en-US", "English (US)"),
-        ("es", "Espanol"),
+        ("es", "Español"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

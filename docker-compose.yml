@@ -21,6 +21,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - backend_packages:/usr/local/lib/python3.12/site-packages
     env_file:
       - ./backend/.env
     depends_on:
@@ -48,3 +49,4 @@ services:
 
 volumes:
   postgres_data:
+  backend_packages:
