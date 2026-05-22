@@ -270,6 +270,38 @@ export async function getPublisherProfile(userId: string) {
   return response.data;
 }
 
+export async function getReviewsSummary(revieweeId: string) {
+  // Simple in-memory cache to avoid repeated requests during the same session
+  // Cache key lifetime: 60 segundos
+  const cacheKey = `reviews_summary:${revieweeId}`;
+  try {
+    const cached = (globalThis as any).__REVIEWS_CACHE__ || {};
+    const entry = cached[cacheKey];
+    const now = Date.now();
+    if (entry && entry.expires > now) {
+      return entry.value as { avg: string; count: number };
+    }
+  } catch {
+    // ignore cache errors
+  }
+
+  const response = await api.get<{ avg: string; count: number }>(
+    `/billing/reviews/summary/?reviewee=${revieweeId}`,
+  );
+
+  try {
+    (globalThis as any).__REVIEWS_CACHE__ = (globalThis as any).__REVIEWS_CACHE__ || {};
+    (globalThis as any).__REVIEWS_CACHE__[cacheKey] = {
+      value: response.data,
+      expires: Date.now() + 60 * 1000,
+    };
+  } catch {
+    // ignore cache set errors
+  }
+
+  return response.data;
+}
+
 export async function toggleSavedProfile(userId: string) {
   const response = await api.post<{ saved: boolean }>(`/profile/save/${userId}/`);
   return response.data;

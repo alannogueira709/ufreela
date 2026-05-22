@@ -12,9 +12,14 @@ import {
 } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { NotificationItem } from './NotificationItem';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotifications } from '@/app/hooks/useNotifications';
 import { NotificationFilter } from '@/types/notification';
 import { cn } from '@/lib/utils';
+
+interface NotificationPanelProps {
+  triggerClassName?: string;
+  showLabel?: boolean;
+}
 
 const FILTER_TABS: { label: string; value: NotificationFilter }[] = [
   { label: 'Todas',      value: 'all' },
@@ -24,7 +29,7 @@ const FILTER_TABS: { label: string; value: NotificationFilter }[] = [
   { label: 'Pagamentos', value: 'payments' },
 ];
 
-export function NotificationPanel() {
+export function NotificationPanel({ triggerClassName, showLabel = false }: NotificationPanelProps) {
   const {
     notifications,
     allNotifications,
@@ -56,10 +61,14 @@ export function NotificationPanel() {
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className="relative hidden rounded-full border border-white/35 bg-white/35 p-2 text-slate-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/55 hover:text-slate-900 md:inline-flex"
+          className={cn(
+            'relative hidden rounded-full border border-white/35 bg-white/35 p-2 text-slate-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/55 hover:text-slate-900 md:inline-flex',
+            triggerClassName,
+          )}
           aria-label="Notificações"
         >
           <Bell size={20} />
+          {showLabel && <span>Notificações</span>}
           {unreadCount > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white ring-2 ring-white">
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -71,7 +80,7 @@ export function NotificationPanel() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[400px] p-0 shadow-xl"
+        className="w-[calc(100vw-2rem)] p-0 shadow-xl sm:w-100"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3">
@@ -121,7 +130,7 @@ export function NotificationPanel() {
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="h-7 gap-1.5 rounded-lg px-2.5 text-xs data-active:bg-foreground data-active:text-background data-active:shadow-none"
+                    className="h-7 gap-1.5 rounded-lg px-1.5 text-xs data-active:bg-foreground data-active:text-background data-active:shadow-none"
                   >
                     {tab.label}
                     {count > 0 && (
@@ -143,7 +152,7 @@ export function NotificationPanel() {
           <Separator />
 
           {/* Notification List */}
-          <ScrollArea className="h-[400px]">
+          <ScrollArea className="h-100">
             {isLoading ? (
               <div className="flex flex-col gap-3 p-4">
                 {[...Array(4)].map((_, i) => (

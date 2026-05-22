@@ -10,8 +10,9 @@ from rest_framework.response import Response
 
 from jobs.models import Opportunity, Proposal
 
-from .models import Contract, StripeAccount, Transaction
+from .models import Contract, StripeAccount, Transaction, Review
 from .serializers import DashboardContractSerializer, StripeAccountSerializer, TransactionSerializer
+from django.db.models import Avg, Count
 
 try:
     import stripe
@@ -439,3 +440,24 @@ def stripe_webhook(request):
         )
 
     return Response({"status": "processed"})
+
+
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def reviews_summary(request):
+    """Retorna média e quantidade de avaliações para um usuário (reviewee).
+
+    Query param: reviewee=<user_id>
+    Response: {"avg": "4.5", "count": 12}
+    """
+    reviewee = request.query_params.get("reviewee")
+    if not reviewee:
+        return Response({"error": "reviewee param is required"}, status=400)
+
+    qs = Review.objects.filter(reviewee__id=reviewee)
+    agg = qs.aggregate(avg=Avg("rating"), count=Count("pk"))
+    avg = agg.get("avg") or 0
+    count = agg.get("count") or 0
+
+    # normaliza para string com 1 casa decimal compatível com frontend
+    return Response({"avg": str(round(float(avg or 0), 1)), "count": int(count)})

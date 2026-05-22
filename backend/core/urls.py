@@ -15,6 +15,7 @@ def api_root(_request):
                 "health": "/api/health/",
                 "auth": "/api/auth/",
                 "jobs": "/api/opportunities/",
+                "notifications": "/api/notifications/",
             },
         }
     )

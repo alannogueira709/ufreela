@@ -15,4 +15,5 @@ urlpatterns = [
         name="contract-complete",
     ),
     path("webhook/", views.stripe_webhook, name="stripe-webhook"),
+    path("reviews/summary/", views.reviews_summary, name="reviews-summary"),
 ]

@@ -185,3 +185,66 @@ class PublicProfileSaveApiTests(DjangoTestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertTrue(response.json()["is_saved"])
+
+
+class PasswordResetApiTests(DjangoTestCase):
+	def setUp(self):
+		self.client = APIClient()
+		self.role = Role.objects.create(role_name="freelancer")
+		self.user = User.objects.create_user(
+			email="reset-me@example.com",
+			username="resetme",
+			password="OldPassword123!",
+			role=self.role,
+		)
+
+	def test_password_reset_request_sends_email(self):
+		from django.core import mail
+		response = self.client.post(
+			"/api/auth/password/reset/",
+			{"email": "reset-me@example.com"},
+			format="json"
+		)
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(len(mail.outbox), 1)
+		self.assertIn("Recuperação de Senha", mail.outbox[0].subject)
+		self.assertIn("reset-password?uidb64=", mail.outbox[0].body)
+
+	def test_password_reset_confirm_successful(self):
+		from django.contrib.auth.tokens import default_token_generator
+		from django.utils.http import urlsafe_base64_encode
+		from django.utils.encoding import force_bytes
+
+		uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+		token = default_token_generator.make_token(self.user)
+
+		response = self.client.post(
+			"/api/auth/password/reset/confirm/",
+			{
+				"uidb64": uidb64,
+				"token": token,
+				"new_password": "NewSecurePassword123!"
+			},
+			format="json"
+		)
+		self.assertEqual(response.status_code, 200)
+		
+		self.user.refresh_from_db()
+		self.assertTrue(self.user.check_password("NewSecurePassword123!"))
+
+	def test_password_reset_confirm_invalid_token(self):
+		from django.utils.http import urlsafe_base64_encode
+		from django.utils.encoding import force_bytes
+
+		uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+
+		response = self.client.post(
+			"/api/auth/password/reset/confirm/",
+			{
+				"uidb64": uidb64,
+				"token": "invalid-token",
+				"new_password": "NewSecurePassword123!"
+			},
+			format="json"
+		)
+		self.assertEqual(response.status_code, 400)

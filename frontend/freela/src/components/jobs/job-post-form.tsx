@@ -569,10 +569,10 @@ export function JobPostForm() {
                 <Info className="size-4" />
               </div>
               <div>
-                <p className="font-semibold text-slate-800">Architect&apos;s Tip</p>
+                <p className="font-semibold text-slate-800">Dica para postagem</p>
                 <p>
-                  Detailed descriptions and clear budget ranges attract better proposals.
-                  Consider including constraints, expected milestones and review cadence.
+                 Descrições detalhadas e faixas orçamentárias claras atraem propostas melhores.
+                 Considere incluir restrições, marcos esperados e a frequência de revisões.
                 </p>
               </div>
             </div>

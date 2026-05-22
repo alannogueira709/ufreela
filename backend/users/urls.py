@@ -6,7 +6,8 @@ from .views import (CompleteRegistrationView, CookieTokenRefreshView,
                     FreelancerProfileView, FreelancerSkillsView,
                     HealthCheckView, LogoutView, PublisherProfileView,
                     RegisterView, SkillListView, SocialLoginSuccessView,
-                    UserMeView, SaveProfileToggleView)
+                    UserMeView, SaveProfileToggleView, PasswordResetRequestView,
+                    PasswordResetConfirmView)
 
 urlpatterns = [
     path("health/", HealthCheckView.as_view()),
@@ -46,4 +47,6 @@ urlpatterns = [
     path("profile/publisher/<str:user_id>/", PublisherProfileView.as_view(), name="publisher_profile"),
     path("profile/freelancer/<str:user_id>/", FreelancerProfileView.as_view(), name="freelancer_profile"),
     path("profile/save/<str:user_id>/", SaveProfileToggleView.as_view(), name="save_profile_toggle"),
+    path("auth/password/reset/", PasswordResetRequestView.as_view(), name="password_reset_request"),
+    path("auth/password/reset/confirm/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
 ]

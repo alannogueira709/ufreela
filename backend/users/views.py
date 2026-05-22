@@ -548,3 +548,110 @@ class SaveProfileToggleView(APIView):
         ).exists()
 
         return Response({"saved": is_saved}, status=status.HTTP_200_OK)
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        from django.core.mail import send_mail
+
+        email = request.data.get("email")
+        if not email:
+            return Response(
+                {"error": "O campo email é obrigatório."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(email=email)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            reset_url = f"{settings.FRONTEND_URL}/reset-password?uidb64={uid}&token={token}"
+
+            subject = "Recuperação de Senha - uFreela"
+            message = (
+                f"Olá,\n\n"
+                f"Você solicitou a recuperação de senha para sua conta no uFreela.\n"
+                f"Clique no link abaixo para cadastrar uma nova senha:\n\n"
+                f"{reset_url}\n\n"
+                f"Se você não solicitou essa alteração, por favor ignore este email.\n"
+            )
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
+        except User.DoesNotExist:
+            # Retorna 200 OK mesmo que o email não exista para evitar enumeração de contas
+            pass
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("django")
+            logger.error(f"Erro ao enviar email de reset de senha: {str(e)}")
+            return Response(
+                {"error": "Erro ao enviar e-mail de recuperação. Tente novamente mais tarde."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {"message": "Se o e-mail informado estiver cadastrado, um link de redefinição foi enviado."},
+            status=status.HTTP_200_OK
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_decode
+        from django.utils.encoding import force_str
+
+        uidb64 = request.data.get("uidb64")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
+
+        if not uidb64 or not token or not new_password:
+            return Response(
+                {"error": "Os campos uidb64, token e new_password são obrigatórios."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response(
+                {"error": "Link de redefinição inválido ou expirado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not default_token_generator.check_token(user, token):
+            return Response(
+                {"error": "Link de redefinição inválido ou expirado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            validate_password(new_password, user)
+        except DjangoValidationError as e:
+            return Response(
+                {"error": e.messages},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response(
+            {"message": "Senha redefinida com sucesso!"},
+            status=status.HTTP_200_OK
+        )

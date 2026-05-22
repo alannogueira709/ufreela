@@ -12,6 +12,7 @@ class Notification(models.Model):
     class Type(models.TextChoices):
         PROPOSAL_ACCEPTED = "proposal_accepted", "Proposta aceita"
         PROPOSAL_REJECTED = "proposal_rejected", "Proposta recusada"
+        NEW_PROPOSAL = "new_proposal", "Nova proposta"
         NEW_MESSAGE = "new_message", "Nova mensagem"
         PAYMENT_RECEIVED = "payment_received", "Pagamento recebido"
         JOB_INVITATION = "job_invitation", "Convite para vaga"

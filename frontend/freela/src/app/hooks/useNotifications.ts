@@ -8,7 +8,6 @@ import {
   markAllNotificationsRead,
   deleteNotification as deleteNotificationApi,
 } from '@/lib/notification-service';
-import { getApiErrorMessage } from '@/lib/api-errors';
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -23,10 +22,8 @@ export function useNotifications() {
       setError(null);
       const data = await fetchNotifications();
       setNotifications(data.results);
-    } catch (err) {
-      setError(
-        getApiErrorMessage(err, 'Não foi possível carregar as notificações.')
-      );
+    } catch {
+      setError('Não foi possível carregar as notificações.');
     } finally {
       setIsLoading(false);
     }

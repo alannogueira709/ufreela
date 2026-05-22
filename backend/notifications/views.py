@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,7 +16,7 @@ class NotificationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
+        return Notification.objects.filter(user=self.request.user).select_related("user")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -60,7 +61,7 @@ class NotificationMarkAllReadView(APIView):
     def post(self, request):
         count = Notification.objects.filter(
             user=request.user, read=False
-        ).update(read=True)
+        ).update(read=True, updated_at=timezone.now())
         return Response({"marked": count})
 
 

@@ -34,37 +34,7 @@ import type { PublisherProfileResponse } from "@/lib/public-service";
 import { ShareDialog } from "@/components/shared/ShareDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-
-function StarRating({
-  rating,
-  count,
-  size = 14,
-}: {
-  rating: number;
-  count?: number;
-  size?: number;
-}) {
-  return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star
-          key={i}
-          size={size}
-          className={
-            i < Math.round(rating)
-              ? "fill-amber-400 text-amber-400"
-              : "text-slate-200"
-          }
-        />
-      ))}
-      {count !== undefined && (
-        <span className="ml-1.5 text-[13px] text-slate-400">
-          {rating} ({count} reviews)
-        </span>
-      )}
-    </div>
-  );
-}
+import StarRating from "@/components/shared/StarRating";
 
 const fadeUp = (delay = 0) => ({
   initial: { y: 28, opacity: 0 },
@@ -220,7 +190,7 @@ export default function PublisherProfilePage() {
 
       <main className="mx-auto max-w-7xl px-6 pb-20 pt-8 lg:px-8">
         <motion.div {...fadeUp(0)}>
-          <Card className="overflow-hidden rounded-3xl border-0 shadow-[0_24px_64px_-20px_rgba(15,23,42,0.1)]">
+          <Card className="rounded-3xl border-0 shadow-[0_24px_64px_-20px_rgba(15,23,42,0.1)] py-0 gap-0">
             {/* Banner — mesmo gradiente do freelancer mas com tom índigo para diferenciar */}
             <div
               className="relative h-48 overflow-hidden lg:h-56"

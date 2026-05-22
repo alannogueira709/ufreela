@@ -32,6 +32,8 @@ import { createProposal } from "@/lib/proposal-service";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserRole } from "@/types/nav";
+import { getReviewsSummary } from "@/lib/public-service";
+import StarRating from "@/components/shared/StarRating";
 
 function formatBudget(min: string | null, max: string | null) {
   if (!min && !max) {
@@ -56,11 +58,11 @@ function formatPublished(value: string) {
   const diffHours = Math.max(1, Math.round(diffMs / (1000 * 60 * 60)));
 
   if (diffHours < 24) {
-    return `Posted ${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    return `Publicado ${diffHours} hora${diffHours > 1 ? "s" : ""} atrás`;
   }
 
   const diffDays = Math.max(1, Math.round(diffHours / 24));
-  return `Posted ${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  return `Publicado ${diffDays} dia${diffDays > 1 ? "s" : ""} atrás`;
 }
 
 function mapRole(role: UserRole | undefined) {
@@ -70,15 +72,15 @@ function mapRole(role: UserRole | undefined) {
 }
 
 function buildResponsibilities(job: Opportunity) {
-  const category = job.category?.category_name ?? "product";
-  const firstSkill = job.skills[0]?.skill_name ?? "execution";
-  const secondSkill = job.skills[1]?.skill_name ?? "delivery";
+  const category = job.category?.category_name ?? "produto";
+  const firstSkill = job.skills[0]?.skill_name ?? "execução";
+  const secondSkill = job.skills[1]?.skill_name ?? "entrega";
 
   return [
-    `Translate ${category.toLowerCase()} goals into a clear execution plan with measurable outcomes.`,
-    `Lead the workstream with strong attention to ${firstSkill} quality, consistency and usability.`,
-    `Collaborate with the client team to validate decisions, align scope and de-risk delivery.`,
-    `Document key tradeoffs and recommendations around ${secondSkill.toLowerCase()} and launch readiness.`,
+    `Transforme os objetivos de ${category.toLowerCase()} em um plano de execução claro, com entregáveis mensuráveis e prazos definidos.`,
+    `Lidere o trabalho com foco em ${firstSkill.toLowerCase()}, garantindo qualidade, consistência e boa usabilidade.`,
+    `Colabore com o time do cliente para validar decisões, alinhar escopo e reduzir riscos na entrega.`,
+    `Documente os principais trade-offs e recomendações sobre ${secondSkill.toLowerCase()} e a prontidão para o lançamento.`,
   ];
 }
 
@@ -95,6 +97,9 @@ export function JobDetailsPage() {
   const [proposalSuccess, setProposalSuccess] = useState("");
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [publisherRating, setPublisherRating] = useState<number | null>(null);
+  const [publisherReviewsCount, setPublisherReviewsCount] = useState<number | null>(null);
+  const [publisherRatingLoading, setPublisherRatingLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -163,6 +168,40 @@ export function JobDetailsPage() {
       isMounted = false;
     };
   }, [opportunityId, user]);
+
+  useEffect(() => {
+    if (!job?.publisher?.id) {
+      setPublisherRating(null);
+      setPublisherReviewsCount(null);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadRating = async () => {
+      try {
+        setPublisherRatingLoading(true);
+        const data = await getReviewsSummary(job.publisher.id);
+        if (isMounted) {
+          setPublisherRating(Number(data.avg));
+          setPublisherReviewsCount(Number(data.count));
+        }
+      } catch {
+        if (isMounted) {
+          setPublisherRating(null);
+          setPublisherReviewsCount(null);
+        }
+      } finally {
+        if (isMounted) setPublisherRatingLoading(false);
+      }
+    };
+
+    void loadRating();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [job?.publisher?.id]);
 
   async function handleProposalSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -417,15 +456,15 @@ export function JobDetailsPage() {
 
                   <div className="mt-6 space-y-4 border-t border-slate-100 pt-6 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-slate-400">Project Deadline</span>
+                      <span className="text-slate-400">Deadline</span>
                       <span className="font-semibold text-slate-700">
                         {job.deadline
-                          ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(job.deadline + "T00:00:00"))
+                          ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(job.deadline + "T00:00:00"))
                           : "Não definido"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-slate-400">Expertise Level</span>
+                      <span className="text-slate-400">Nível de Experiência</span>
                       <span className="font-semibold capitalize text-slate-700">
                         {job.xp_level || "Not specified"}
                       </span>
@@ -439,16 +478,17 @@ export function JobDetailsPage() {
                   </h3>
                   <div className="mt-4 space-y-4">
                     <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <div className="flex items-center gap-1 text-blue-600">
-                        {Array.from({ length: 5 }).map((_, index) => (
-                          <Star key={index} className="size-3.5 fill-current" />
-                        ))}
-                      </div>
-                      <span className="font-semibold text-slate-700">4.9 of 12 reviews</span>
+                      {publisherRatingLoading ? (
+                        <span className="font-semibold text-slate-700">...</span>
+                      ) : publisherRating !== null && publisherReviewsCount !== null ? (
+                        <StarRating rating={publisherRating} count={publisherReviewsCount} size={14} />
+                      ) : (
+                        <span className="font-semibold text-slate-700">Sem avaliações</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 text-sm text-slate-500">
                       <Building2 className="size-4 text-slate-400" />
-                      {job.publisher.company_name || "Verified client"}
+                      {job.publisher.company_name || "Verificado"}
                     </div>
                     <div className="flex items-center gap-3 text-sm text-slate-500">
                       <Link href={`/profile/publisher/${job.publisher.id}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700">
@@ -490,9 +530,9 @@ export function JobDetailsPage() {
                 <div className="rounded-[30px] bg-white p-6 text-sm text-slate-500 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.24)]">
                   <div className="flex items-center gap-3">
                     <Clock3 className="size-4 text-slate-400" />
-                    Updated{" "}
-                    {new Intl.DateTimeFormat("en-US", {
-                      dateStyle: "medium",
+                    Atualizado em:{" "}
+                    {new Intl.DateTimeFormat("pt-BR", {
+                      dateStyle: "long",
                     }).format(new Date(job.updated_at))}
                   </div>
                 </div>

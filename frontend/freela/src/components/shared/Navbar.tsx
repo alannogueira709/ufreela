@@ -8,7 +8,7 @@ import {
   useMotionValueEvent,
   useScroll,
 } from "motion/react";
-import { Bell, ChevronDown, Menu, MessageSquare, X } from "lucide-react";
+import { ChevronDown, Menu, MessageSquare, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -22,6 +22,7 @@ import {
 import { getNavLinks } from "@/lib/nav-links";
 import AvatarImage from "../ui/avatar-image";
 import type { UserRole } from "@/types/nav";
+import { NotificationPanel } from "../notifications/NotificationPanel";
 
 const navLinkClassName = "border-b-2 border-transparent pb-1 text-sm font-medium tracking-tight text-slate-500 transition-all duration-300 ease-in-out hover:border-blue-600 hover:text-blue-600";
 
@@ -150,13 +151,12 @@ export default function Navbar({ role }: NavbarProps) {
                   <MessageSquare size={20} />
                 </motion.button>
 
-                <motion.button
+                <motion.div
                   whileHover={{ y: -1, scale: 1.02 }}
                   whileTap={{ scale: 0.96 }}
-                  className="hidden rounded-full border border-white/35 bg-white/35 p-2 text-slate-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/55 hover:text-slate-900 md:inline-flex"
                 >
-                  <Bell size={20} />
-                </motion.button>
+                  <NotificationPanel />
+                </motion.div>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -165,7 +165,6 @@ export default function Navbar({ role }: NavbarProps) {
                       whileTap={{ scale: 0.97 }}
                       className="hidden items-center gap-1 rounded-full border border-white/35 bg-white/35 p-1 pl-2 text-slate-600 shadow-sm backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/55 hover:text-slate-900 md:flex"
                     >
-                     
                       <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-200/80 text-slate-600">
                         <AvatarImage 
                           email={user?.email}
@@ -177,9 +176,11 @@ export default function Navbar({ role }: NavbarProps) {
                       <ChevronDown size={16} className="text-slate-500" />
                     </motion.button>
                   </DropdownMenuTrigger>
+                  {/* z-[100] garante que o dropdown fique acima de qualquer stacking context da página */}
                   <DropdownMenuContent
                     align="end"
-                    className="rounded-2xl border border-white/30 bg-white/45 p-2 shadow-[0_20px_50px_-28px_rgba(15,23,42,0.45)] backdrop-blur-2xl"
+                    sideOffset={8}
+                    className="z-[100] rounded-2xl border border-white/30 bg-white/45 p-2 shadow-[0_20px_50px_-28px_rgba(15,23,42,0.45)] backdrop-blur-2xl"
                   >
                     <DropdownMenuItem onClick={handleViewProfile}>
                       Ver Perfil
@@ -251,10 +252,10 @@ export default function Navbar({ role }: NavbarProps) {
                     </>
                   ) : (
                     <>
-                      <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/45 px-4 py-3 text-sm font-medium text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-slate-900">
-                        <Bell size={18} />
-                        Notificações
-                      </button>
+                      <NotificationPanel
+                        showLabel
+                        triggerClassName="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/45 px-4 py-3 text-sm font-medium text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-slate-900 md:hidden"
+                      />
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/45 px-4 py-3 text-sm font-medium text-slate-600 backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-white/65 hover:text-slate-900">
@@ -268,9 +269,10 @@ export default function Navbar({ role }: NavbarProps) {
                             <ChevronDown size={16} className="text-slate-500" />
                           </button>
                         </DropdownMenuTrigger>
+                        {/* z-[100] garante que o dropdown fique acima de qualquer stacking context da página */}
                         <DropdownMenuContent
                           align="end"
-                          className="rounded-2xl border border-white/30 bg-white/45 p-2 shadow-[0_20px_50px_-28px_rgba(15,23,42,0.45)] backdrop-blur-2xl"
+                          className="z-[100] rounded-2xl border border-white/30 bg-white/45 p-2 shadow-[0_20x_50px_-28px_rgba(15,23,42,0.45)] backdrop-blur-2xl"
                         >
                           <DropdownMenuItem onClick={handleViewProfile}>
                             Ver Perfil
