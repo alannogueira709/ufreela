@@ -46,7 +46,7 @@ if not SECRET_KEY:
     else:
         raise RuntimeError("DJANGO_SECRET_KEY nao configurada.")
 
-ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost"])
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost", "backend"])
 
 
 def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None = None):

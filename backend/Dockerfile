@@ -14,4 +14,4 @@ COPY . .
 
 EXPOSE 8000
 
-ENTRYPOINT ["sh", "/app/entrypoint.sh"]
+ENTRYPOINT ["sh", "-c", "sed -i 's/\r$//' /app/entrypoint.sh && exec sh /app/entrypoint.sh"]
