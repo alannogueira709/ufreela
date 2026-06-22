@@ -482,7 +482,7 @@ export default function FreelancerProfilePage() {
                     </button>
                     <button
                       className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
-                      onClick={() => console.log("Ver resumo")}
+                      onClick={() => {}}
                     >
                       <BarChart3 size={15} className="text-blue-600" />
                       Ver resumo público

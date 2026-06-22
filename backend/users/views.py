@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.db import connections
+from django.core.cache import cache
 from django.contrib.auth import logout as django_logout
 from django.shortcuts import redirect
 from django.utils.text import slugify
@@ -74,6 +76,10 @@ class CsrfTokenView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        # Garante que o navegador tenha um sessionid cookie antes de iniciar o
+        # fluxo OAuth. O allauth precisa desse cookie para armazenar o state.
+        if not request.session.session_key:
+            request.session.save()
         return Response({"message": "CSRF cookie definido com sucesso."})
 
 
@@ -131,11 +137,48 @@ class SocialLoginSuccessView(APIView):
         return response
 
 
+class SocialSessionView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response(
+                {"authenticated": False},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        refresh = RefreshToken.for_user(request.user)
+        response = Response({
+            "authenticated": True,
+            "redirect_url": get_frontend_redirect_url(request.user),
+        })
+        attach_auth_cookies(response, str(refresh.access_token), str(refresh))
+        return response
+
+
 class HealthCheckView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        return Response({"status": "ok"})
+        try: 
+            connections["default"].cursor().execute("SELECT 1")
+            db_ok = True
+        except Exception as e:
+            db_ok = False
+        
+        try:
+            cache.set("health_check", "ok", timeout=1)
+            cache_ok = cache.get("health_check") == "ok"
+        except Exception as e:
+            cache_ok = False
+        
+        status_code = status.HTTP_200_OK if db_ok and cache_ok else status.HTTP_503_SERVICE_UNAVAILABLE
+        return Response({
+            "status":"ok" if db_ok and cache_ok else "error",
+            "database": "ok" if db_ok else "error",
+            "cache": "ok" if cache_ok else "error",
+        }, status=status_code,
+        )
 
 
 class RegisterView(APIView):
@@ -169,9 +212,19 @@ class CompleteRegistrationView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            OnboardingService.complete(request.user, serializer.to_dto())
+            user = OnboardingService.complete(request.user, serializer.to_dto())
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from core.email_service import EmailService
+            email_service = EmailService()
+            role = user.role.role_name if user.role else ""
+            email_service.send_welcome_email(user, role=role)
+        except Exception:
+            import logging
+            logger = logging.getLogger("django")
+            logger.exception("Erro ao enviar email de boas-vindas")
 
         return Response({"message": "Cadastro finalizado."})
 
@@ -557,7 +610,7 @@ class PasswordResetRequestView(APIView):
         from django.contrib.auth.tokens import default_token_generator
         from django.utils.http import urlsafe_base64_encode
         from django.utils.encoding import force_bytes
-        from django.core.mail import send_mail
+        from core.email_service import EmailService
 
         email = request.data.get("email")
         if not email:
@@ -572,23 +625,9 @@ class PasswordResetRequestView(APIView):
             token = default_token_generator.make_token(user)
             reset_url = f"{settings.FRONTEND_URL}/reset-password?uidb64={uid}&token={token}"
 
-            subject = "Recuperação de Senha - uFreela"
-            message = (
-                f"Olá,\n\n"
-                f"Você solicitou a recuperação de senha para sua conta no uFreela.\n"
-                f"Clique no link abaixo para cadastrar uma nova senha:\n\n"
-                f"{reset_url}\n\n"
-                f"Se você não solicitou essa alteração, por favor ignore este email.\n"
-            )
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [email],
-                fail_silently=False,
-            )
+            email_service = EmailService()
+            email_service.send_password_reset_email(user, reset_url)
         except User.DoesNotExist:
-            # Retorna 200 OK mesmo que o email não exista para evitar enumeração de contas
             pass
         except Exception as e:
             import logging
@@ -655,3 +694,98 @@ class PasswordResetConfirmView(APIView):
             {"message": "Senha redefinida com sucesso!"},
             status=status.HTTP_200_OK
         )
+
+
+class UserDataExportView(APIView):
+    """LGPD: export all personal data belonging to the authenticated user."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        data = {
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "username": user.username,
+                "name": user.name,
+                "last_name": user.last_name,
+                "role": user.role.role_name if user.role else None,
+                "is_active": user.is_active,
+                "date_joined": user.date_joined.isoformat() if user.date_joined else None,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+            },
+            "social_accounts": [],
+            "profile": {},
+            "saved_profiles": [],
+        }
+
+        try:
+            freelancer = user.freelancer_profile
+            data["profile"]["freelancer"] = {
+                "description": freelancer.description,
+                "professional_level": freelancer.professional_level,
+                "hourly_rate": str(freelancer.hourly_rate) if freelancer.hourly_rate else None,
+                "finished_jobs": freelancer.finished_jobs,
+                "mean_eval": str(freelancer.mean_eval),
+            }
+        except (Freelancer.DoesNotExist, AttributeError):
+            pass
+
+        try:
+            publisher = user.publisher_profile
+            data["profile"]["publisher"] = {
+                "company_name": publisher.company_name,
+                "description": publisher.description,
+                "website": publisher.website,
+            }
+        except (Publisher.DoesNotExist, AttributeError):
+            pass
+
+        for account in user.socialaccount_set.all():
+            data["social_accounts"].append({
+                "provider": account.provider,
+                "uid": account.uid,
+                "extra_data": account.extra_data,
+                "last_login": account.last_login.isoformat() if account.last_login else None,
+            })
+
+        for saved in SavedProfile.objects.filter(user=user):
+            data["saved_profiles"].append(str(saved.saved_user_id))
+
+        return Response({"data": data})
+
+
+class UserDeleteAccountView(APIView):
+    """LGPD: anonymize/delete the authenticated user's account."""
+
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+
+        # Remove connected social accounts first to avoid orphaned data.
+        user.socialaccount_set.all().delete()
+
+        # Anonymize personal identifiers.
+        import uuid
+        anonymous_suffix = uuid.uuid4().hex[:12]
+        user.email = f"deleted_{anonymous_suffix}@anon.ufreela"
+        user.username = f"deleted_{anonymous_suffix}"
+        user.name = "Usuário excluído"
+        user.last_name = ""
+        user.is_active = False
+        user.set_unusable_password()
+
+        if user.profile_img:
+            user.profile_img.delete(save=False)
+            user.profile_img = None
+
+        user.save()
+
+        response = Response(
+            {"message": "Conta excluída com sucesso."},
+            status=status.HTTP_200_OK,
+        )
+        return clear_auth_cookies(response)

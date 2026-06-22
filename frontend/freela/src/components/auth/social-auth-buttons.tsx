@@ -5,7 +5,8 @@ import type { ReactElement } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
-  getSocialLoginUrl,
+  initiateSocialLogin,
+  type SocialAuthProcess,
   type SocialProvider,
 } from "@/lib/social-auth";
 
@@ -60,12 +61,16 @@ const providers: Array<{
 
 type SocialAuthButtonsProps = {
   activeProvider: SocialProvider | null;
-  onStart: (provider: SocialProvider) => void;
+  process?: SocialAuthProcess;
+  onStart: (provider: SocialProvider | null) => void;
+  onError?: (message: string) => void;
 };
 
 export function SocialAuthButtons({
   activeProvider,
+  process = "login",
   onStart,
+  onError,
 }: SocialAuthButtonsProps) {
   return (
     <div className="grid gap-3 sm:grid-cols-3">
@@ -78,9 +83,16 @@ export function SocialAuthButtons({
             type="button"
             variant="outline"
             disabled={activeProvider !== null}
-            onClick={() => {
+            onClick={async () => {
               onStart(id);
-              window.location.href = getSocialLoginUrl(id);
+              try {
+                await initiateSocialLogin(id, process);
+              } catch {
+                onStart(null);
+                onError?.(
+                  "Não foi possível iniciar o login social. Tente novamente."
+                );
+              }
             }}
             className="h-11 justify-center rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
           >

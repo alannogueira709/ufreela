@@ -57,7 +57,7 @@ export function SignupForm({
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("As senhas nao coincidem. Por favor, tente novamente.");
+      setError("As senhas não coincidem. Por favor, tente novamente.");
       return;
     }
 
@@ -114,6 +114,7 @@ export function SignupForm({
         <SocialAuthButtons
           activeProvider={activeSocialProvider}
           onStart={setActiveSocialProvider}
+          onError={setError}
         />
 
         <FieldSeparator>Ou continue com email</FieldSeparator>
@@ -201,17 +202,17 @@ export function SignupForm({
         </Field>
 
         <FieldDescription className="text-center text-sm text-slate-500">
-          Ja tem uma conta?{" "}
+          Já tem uma conta?{" "}
           <Link
             href="/login"
             className="font-semibold text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline"
           >
-            Faca login
+            Faça login
           </Link>
         </FieldDescription>
 
         <div className="border-t border-slate-100 pt-5 text-xs leading-6 text-slate-400">
-          Ao criar sua conta, voce concorda com nossos Termos, Politica de
+          Ao criar sua conta, você concorda com nossos Termos, Política de
           Privacidade e Diretrizes da Plataforma.
         </div>
       </FieldGroup>

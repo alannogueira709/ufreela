@@ -32,6 +32,7 @@ urlpatterns = [
     path("api/notifications/", include("notifications.urls")),
     path("api/", include("jobs.urls")),
     path("api/", include("users.urls")),
+    path("api/_allauth/", include("allauth.headless.urls")),
 ]
 
 if settings.DEBUG:

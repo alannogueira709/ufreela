@@ -1,5 +1,6 @@
 from rest_framework import generics, permissions, status
-from rest_framework.response import Response 
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from .models import Conversation, Message
@@ -85,3 +86,11 @@ class MarkAsReadView(generics.UpdateAPIView):
 class MessageCreateView(generics.CreateAPIView):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        conversation_id = self.request.data.get('conversation')
+        conversation = get_object_or_404(Conversation, id=conversation_id)
+
+        if self.request.user not in [conversation.user1, conversation.user2]:
+            raise PermissionDenied("Você não tem permissão para enviar mensagens nesta conversa.")
+        serializer.save(sender=self.request.user, conversation=conversation)

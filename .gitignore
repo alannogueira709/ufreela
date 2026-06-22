@@ -1,11 +1,18 @@
 venv/
 .venv/
 
+.agents/
+
 .mypy_cache/
 __pycache__/
 
 backend/.env
+**/.env.*
 **/.env
+
+# Logs
+backend/django_errors.log
+*.log
 
 backend/seed_skills.py
 backend/seed_users.py

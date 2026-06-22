@@ -99,7 +99,7 @@ export default function Navbar({ role }: NavbarProps) {
             <div className="hidden items-center gap-6 md:flex">
               {links.map((link, index) => (
                 <motion.div
-                  key={link.href}
+                  key={link.label}
                   initial={{ y: -8, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{
@@ -218,7 +218,7 @@ export default function Navbar({ role }: NavbarProps) {
                 <div className="flex flex-col gap-2">
                   {links.map((link) => (
                     <Link
-                      key={link.href}
+                      key={link.label}
                       href={link.href}
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={

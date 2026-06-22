@@ -1,7 +1,6 @@
 import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.core.mail import send_mail
 from django.conf import settings
 from django.db import transaction as db_transaction
 
@@ -21,18 +20,21 @@ def _send_notification_email(user, title, message):
         user_settings = user.settings
         email_enabled = user_settings.email_notifications
     except Exception:
-        email_enabled = True  # Padrão é True se não configurado
+        email_enabled = True
 
     if not email_enabled:
         return
 
     try:
-        send_mail(
-            subject=title,
-            message=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
+        from core.email_service import EmailService
+        message_lines = [line.strip() for line in message.split("\n") if line.strip()]
+        email_service = EmailService()
+        email_service.send_notification_email(
+            user=user,
+            title=title,
+            message_lines=message_lines,
+            action_url=f"{settings.FRONTEND_URL}/notifications",
+            action_label="Ver no uFreela",
         )
     except Exception as e:
         logger.error(f"Erro ao enviar email de notificação para {user.email}: {str(e)}")

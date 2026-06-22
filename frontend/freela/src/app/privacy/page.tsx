@@ -19,9 +19,16 @@ export default function PrivacyPage() {
             integracoes e pagamentos.
           </p>
           <p>
-            Dados sensiveis e tokens de integracao devem ser armazenados com
+            Dados sensiveis e tokens de integracao sao armazenados com
             criptografia no backend. Usuarios podem atualizar dados de perfil e
             configuracoes pela area de conta.
+          </p>
+          <p>
+            Em conformidade com a LGPD, voce tem direito a acessar, corrigir e
+            solicitar a exclusao dos seus dados pessoais. Para exportar seus dados,
+            acesse a area de configuracoes da conta. Para solicitar a exclusao,
+            use a opcao "Excluir conta" no perfil ou entre em contato com nosso
+            suporte.
           </p>
           <p>
             Esta politica e um texto inicial de produto e deve ser validada antes

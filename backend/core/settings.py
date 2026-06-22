@@ -14,6 +14,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
+
 
 def env_bool(name: str, default: bool) -> bool:
     value = os.environ.get(name)
@@ -39,7 +41,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = env_bool("DEBUG", False)
 
 # SECURITY WARNING: keep the secret key used in production secret.
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
     if DEBUG:
         SECRET_KEY = "dev-only-insecure-secret-key"
@@ -76,12 +78,14 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.headless",
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.github",
     "allauth.socialaccount.providers.linkedin_oauth2",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "corsheaders",
     "rest_framework",
@@ -107,6 +111,7 @@ if not FIELD_ENCRYPTION_KEY:
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -121,7 +126,7 @@ ROOT_URLCONF = "core.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "core" / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -139,20 +144,41 @@ CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", ["http://localhost:3000"
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", ["http://localhost:3000"])
+ 
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "freela"),
-        "USER": os.environ.get("DB_USER", "freela_user"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "freela_pass"),
-        "HOST": os.environ.get("DB_HOST", "db"),
-        "PORT": os.environ.get("DB_PORT", "5432"),
+if os.environ.get("DATABASE_URL"):
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=os.environ.get("DATABASE_URL"),
+            conn_max_age=600,
+            ssl_require=not DEBUG,
+        )
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "freela"),
+            "USER": os.environ.get("DB_USER", "freela_user"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", "freela_pass"),
+            "HOST": os.environ.get("DB_HOST", "db"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
+        }
+    }
 
 SITE_ID = 1
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
+# Garante que o host do FRONTEND_URL seja considerado seguro para redirects
+# de login social (validação is_safe_url do Django/allauth).
+try:
+    from urllib.parse import urlparse
+
+    _frontend_host = urlparse(FRONTEND_URL).hostname
+    if _frontend_host and _frontend_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_frontend_host)
+except Exception:
+    pass
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
@@ -173,6 +199,11 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = "none"
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_QUERY_EMAIL = True
+# When a social provider returns a verified email that already belongs to a
+# local user, log that user in and connect the social account automatically.
+# Safe for trusted providers such as Google/GitHub.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 
 LOGIN_REDIRECT_URL = "/api/auth/social/success/"
 LOGOUT_REDIRECT_URL = "/login/"
@@ -215,6 +246,48 @@ REST_FRAMEWORK = {
     ],
 }
 
+
+redis_url = os.environ.get("REDIS_URL")
+if redis_url:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [redis_url],
+            },
+        },
+    }
+else:
+    # Fallback para dev (InMemoryChannelLayer)
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
+
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+# Supabase Storage (S3-compatible) is used in production for user uploads.
+if os.environ.get("SUPABASE_S3_ENDPOINT"):
+    STORAGES["default"]["BACKEND"] = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_ACCESS_KEY_ID = os.environ.get("SUPABASE_ACCESS_KEY")
+    AWS_SECRET_ACCESS_KEY = os.environ.get("SUPABASE_SECRET_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.environ.get("SUPABASE_BUCKET_NAME", "ufreela-media")
+    AWS_S3_ENDPOINT_URL = os.environ.get("SUPABASE_S3_ENDPOINT")
+    AWS_S3_REGION_NAME = os.environ.get("SUPABASE_REGION", "sa-east-1")
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = "public-read"
+    AWS_QUERYSTRING_AUTH = False
+
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -228,10 +301,10 @@ AUTH_COOKIE_ACCESS = "access_token"
 AUTH_COOKIE_REFRESH = "refresh_token"
 AUTH_COOKIE_SECURE = env_bool("AUTH_COOKIE_SECURE", not DEBUG)
 AUTH_COOKIE_HTTP_ONLY = True
-AUTH_COOKIE_SAMESITE = os.environ.get(
-    "AUTH_COOKIE_SAMESITE",
-    "Lax" if DEBUG else "None",
-)
+# Lax is sufficient for both local dev (localhost:3000 -> localhost:8000) and
+# production (ufreela.com.br -> api.ufreela.com.br) because they share the same
+# site. None would require Secure=True and complicates local testing.
+AUTH_COOKIE_SAMESITE = env_list("AUTH_COOKIE_SAMESITE", ["Lax"])[0]
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -253,15 +326,6 @@ PASSWORD_HASHERS = [
 ]
 
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [(os.environ.get("REDIS_HOST", "redis"), int(os.environ.get("REDIS_PORT", 6379)))],
-        },
-    },
-}
-
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "UTC"
 USE_I18N = True
@@ -270,6 +334,7 @@ USE_TZ = True
 ASGI_APPLICATION = 'core.asgi.application'
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -296,6 +361,18 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "uFreela <no-reply@ufr
 
 if DEBUG and not EMAIL_HOST_USER:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# ── Resend (Transactional Email API) ──────────────────────
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM_EMAIL = os.environ.get(
+    "RESEND_FROM_EMAIL", "uFreela <noreply@ufreela.com.br>"
+)
+
+# ── Allauth Headless (SPA Auth API) ────────────────────────
+HEADLESS_ONLY = True
+HEADLESS_FRONTEND_URLS = {
+    "socialaccount_login_error": f"{FRONTEND_URL}/auth/social/callback",
+}
 
 # ── Security & Throttling ──────────────────────────────────
 REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
@@ -338,3 +415,21 @@ LOGGING = {
         },
     },
 }
+
+if not DEBUG:
+    # Render and most reverse proxies terminate TLS; let the proxy handle HTTP
+    # -> HTTPS redirects instead of Django to avoid redirect loops.
+    SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", False)
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_SAMESITE = "Lax"
+    X_FRAME_OPTIONS = "DENY"

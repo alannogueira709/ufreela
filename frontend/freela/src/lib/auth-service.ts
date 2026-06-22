@@ -35,6 +35,16 @@ export interface CompleteRegistrationPayload {
   profile_image?: File;
 }
 
+export interface PasswordResetRequestPayload {
+  email: string;
+}
+
+export interface PasswordResetConfirmPayload {
+  uidb64: string;
+  token: string;
+  new_password: string;
+}
+
 export async function getCurrentUser() {
   const response = await api.get<AuthUser>("/auth/me/");
   return response.data;
@@ -70,4 +80,20 @@ export async function completeRegistration(payload: CompleteRegistrationPayload)
   }
 
   await api.post("/auth/register/complete/", formData);
+}
+
+export async function requestPasswordReset(payload: PasswordResetRequestPayload) {
+  const response = await api.post<{ message: string }>(
+    "/auth/password/reset/",
+    payload
+  );
+  return response.data;
+}
+
+export async function confirmPasswordReset(payload: PasswordResetConfirmPayload) {
+  const response = await api.post<{ message: string }>(
+    "/auth/password/reset/confirm/",
+    payload
+  );
+  return response.data;
 }

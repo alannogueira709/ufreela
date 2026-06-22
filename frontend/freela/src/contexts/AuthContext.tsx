@@ -23,8 +23,23 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isPublicRoute(pathname: string) {
+  return (
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/reset-password" ||
+    pathname === "/signup" ||
+    pathname.startsWith("/auth/")
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
+  const shouldLoadCurrentUser =
+    typeof window === "undefined" ||
+    (!window.location.pathname.startsWith("/auth/") &&
+      window.location.pathname !== "/reset-password");
 
   const { data: user = null, isLoading, refetch } = useQuery<AuthUser | null>({
     queryKey: ["auth", "user"],
@@ -36,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     },
     retry: false,
+    enabled: shouldLoadCurrentUser,
   });
 
   useEffect(() => {
@@ -46,11 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleUnauthorized = () => {
       queryClient.setQueryData(["auth", "user"], null);
       if (typeof window !== "undefined") {
-         // Redirect to login only if not already on a public route
-         const publicRoutes = ['/', '/login', '/register', '/signup'];
-         if (!publicRoutes.includes(window.location.pathname)) {
-            window.location.href = "/login?session_expired=true";
-         }
+        if (!isPublicRoute(window.location.pathname)) {
+          window.location.href = "/login?session_expired=true";
+        }
       }
     };
 

@@ -1,9 +1,13 @@
 import json
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 from rest_framework_simplejwt.tokens import AccessToken
 from .models import Conversation, Message
+
+logger = logging.getLogger("django")
+
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -18,22 +22,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
             token = self.scope['cookies'].get('access_token', '')
 
         self.user = await self.get_user_from_token(token)
-        print(f"DEBUG CHAT: User extracted from token: {self.user}", flush=True)
-        
+        logger.debug(f"DEBUG CHAT: User extracted from token: {self.user}")
+
         if isinstance(self.user, AnonymousUser):
-            print("DEBUG CHAT: User is anonymous. Closing.", flush=True)
+            logger.debug("DEBUG CHAT: User is anonymous. Closing.")
             await self.close()
             return
 
         # Verifica se o usuário pertence à conversa
         is_part = await self.is_participant()
-        print(f"DEBUG CHAT: Is participant: {is_part}", flush=True)
+        logger.debug(f"DEBUG CHAT: Is participant: {is_part}")
         if not is_part:
-            print("DEBUG CHAT: Not participant. Closing.", flush=True)
+            logger.debug("DEBUG CHAT: Not participant. Closing.")
             await self.close()
             return
 
-        print("DEBUG CHAT: Connection accepted.", flush=True)
+        logger.debug("DEBUG CHAT: Connection accepted.")
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
@@ -76,7 +80,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return MessageSerializer(message).data
 
     async def receive(self, text_data):
-        print(f"DEBUG CHAT: Received message: {text_data}", flush=True)
+        logger.debug(f"DEBUG CHAT: Received message: {text_data}")
         try:
             data = json.loads(text_data)
             message_content = data.get('message', '').strip()
@@ -86,7 +90,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Salva no banco e serializa com MessageSerializer
             message_data = await self.save_message_and_serialize(message_content)
-            print(f"DEBUG CHAT: Message saved: {message_data}", flush=True)
+            logger.debug(f"DEBUG CHAT: Message saved: {message_data}")
             
             # Envia para o grupo
             await self.channel_layer.group_send(
@@ -97,9 +101,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
         except Exception as e:
-            print(f"DEBUG CHAT: Error in receive: {e}", flush=True)
-        
-
+            logger.error(f"DEBUG CHAT: Error in receive: {e}")
 
     async def chat_message(self, event):
         # Envia para o WebSocket do cliente
