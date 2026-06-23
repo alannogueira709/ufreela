@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import socket
+import urllib.parse
 from datetime import timedelta
 from pathlib import Path
 
@@ -135,10 +137,36 @@ CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", ["http://localhost:3000"])
 
+
+def _force_ipv4_database_url(url: str) -> str:
+    """Render nao roteia IPv6 de saida; forca hostaddr IPv4 para o PostgreSQL."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if not parsed.hostname:
+            return url
+        # Resolve apenas IPv4 (AF_INET)
+        infos = socket.getaddrinfo(parsed.hostname, None, socket.AF_INET)
+        if not infos:
+            return url
+        ipv4 = infos[0][4][0]
+        # Adiciona hostaddr como query parameter
+        query = urllib.parse.parse_qs(parsed.query)
+        query["hostaddr"] = [ipv4]
+        new_query = urllib.parse.urlencode(query, doseq=True)
+        return urllib.parse.urlunparse(
+            parsed._replace(query=new_query)
+        )
+    except Exception:
+        # Falha silenciosa: mantem URL original
+        return url
+
+
 if os.environ.get("DATABASE_URL"):
+    _raw_db_url = os.environ.get("DATABASE_URL")
+    _ipv4_db_url = _force_ipv4_database_url(_raw_db_url)
     DATABASES = {
         "default": dj_database_url.config(
-            default=os.environ.get("DATABASE_URL"),
+            default=_ipv4_db_url,
             conn_max_age=600,
             ssl_require=not DEBUG,
         )
