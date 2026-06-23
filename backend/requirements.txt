@@ -7,7 +7,6 @@ Django==6.0.4
 django-allauth==65.15.1
 django-cors-headers==4.9.0
 django-encrypted-model-fields==0.6.5
-django-extensions==3.2.3
 django-filter==25.2
 djangorestframework==3.17.1
 djangorestframework_simplejwt==5.5.1

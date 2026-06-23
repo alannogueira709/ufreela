@@ -283,6 +283,7 @@ def create_payment_intent(request):
             "publisher": request.user,
             "freelancer": proposal.freelancer.user_id,
             "job_id": str(proposal.opportunity_id),
+            "opportunity": proposal.opportunity,
             "amount": Decimal(amount) / Decimal("100"),
             "platform_fee": Decimal(platform_fee) / Decimal("100"),
             "freelancer_amount": Decimal(freelancer_amount) / Decimal("100"),

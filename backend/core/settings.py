@@ -71,7 +71,6 @@ def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None
 
 INSTALLED_APPS = [
     "daphne",
-    "django_extensions",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.sites",
@@ -196,7 +195,7 @@ AUTHENTICATION_BACKENDS = (
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_EMAIL_VERIFICATION = os.environ.get("ACCOUNT_EMAIL_VERIFICATION", "none")
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_QUERY_EMAIL = True
 # When a social provider returns a verified email that already belongs to a

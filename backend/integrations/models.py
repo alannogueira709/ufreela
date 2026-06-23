@@ -64,12 +64,13 @@ class ImportedEducation(models.Model):
     end_year = models.IntegerField(null=True, blank=True)
     is_current = models.BooleanField(default=False)
     description = models.TextField(null=True, blank=True)
-    linkedin_education_id = models.CharField(max_length=100, null=True, blank=True, unique=True)
+    linkedin_education_id = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "imported_education"
         ordering = ["-end_year", "-start_year", "-created_at"]
+        unique_together = ("user", "linkedin_education_id")
 
 
 class ImportedExperience(models.Model):
@@ -90,12 +91,13 @@ class ImportedExperience(models.Model):
     is_current = models.BooleanField(default=False)
     description = models.TextField(null=True, blank=True)
     company_logo_url = models.URLField(null=True, blank=True)
-    linkedin_position_id = models.CharField(max_length=100, null=True, blank=True, unique=True)
+    linkedin_position_id = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "imported_experience"
         ordering = ["-is_current", "-end_year", "-start_year", "-created_at"]
+        unique_together = ("user", "linkedin_position_id")
 
 
 class PortfolioProject(models.Model):

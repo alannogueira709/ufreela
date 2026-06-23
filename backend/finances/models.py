@@ -3,7 +3,7 @@ import uuid
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from jobs.models import Proposal
+from jobs.models import Opportunity, Proposal
 
 
 class Contract(models.Model):
@@ -190,7 +190,19 @@ class Transaction(models.Model):
         null=True,
         blank=True,
     )
-    job_id = models.CharField(max_length=64, null=True, blank=True)
+    job_id = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text="Legado — usar opportunity em vez disso.",
+    )
+    opportunity = models.ForeignKey(
+        Opportunity,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="transactions",
+    )
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     platform_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     freelancer_amount = models.DecimalField(max_digits=12, decimal_places=2)
