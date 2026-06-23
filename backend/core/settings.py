@@ -139,7 +139,7 @@ CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", ["http://localhost:3000"
 
 
 def _force_ipv4_database_url(url: str) -> str:
-    """Render nao roteia IPv6 de saida; forca hostaddr IPv4 para o PostgreSQL."""
+    """Render nao roteia IPv6 de saida; substitui hostname pelo IPv4 diretamente."""
     try:
         parsed = urllib.parse.urlparse(url)
         if not parsed.hostname:
@@ -149,12 +149,11 @@ def _force_ipv4_database_url(url: str) -> str:
         if not infos:
             return url
         ipv4 = infos[0][4][0]
-        # Adiciona hostaddr como query parameter
-        query = urllib.parse.parse_qs(parsed.query)
-        query["hostaddr"] = [ipv4]
-        new_query = urllib.parse.urlencode(query, doseq=True)
+        # Substitui hostname pelo IP v4 diretamente na URL
+        # Mantem tudo (usuario, senha, porta, path, query)
+        netloc = f"{parsed.username}:{parsed.password}@{ipv4}:{parsed.port}"
         return urllib.parse.urlunparse(
-            parsed._replace(query=new_query)
+            parsed._replace(netloc=netloc)
         )
     except Exception:
         # Falha silenciosa: mantem URL original
