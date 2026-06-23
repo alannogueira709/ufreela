@@ -30,5 +30,6 @@ echo "PostgreSQL is ready"
 echo "Applying database migrations..."
 python manage.py migrate --noinput
 
-echo "Starting Daphne ASGI server..."
-exec daphne -b 0.0.0.0 -p 8000 core.asgi:application
+PORT="${PORT:-8000}"
+echo "Starting Daphne ASGI server on port $PORT..."
+exec daphne -b 0.0.0.0 -p "$PORT" core.asgi:application
