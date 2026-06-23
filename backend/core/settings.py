@@ -51,6 +51,10 @@ if not SECRET_KEY:
         raise RuntimeError("DJANGO_SECRET_KEY nao configurada.")
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost"])
+# Render health checks podem usar o hostname .onrender.com internamente
+_onrender_host = os.environ.get("RENDER_SERVICE_NAME")
+if _onrender_host and _onrender_host not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_onrender_host)
 
 
 def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None = None):
@@ -144,19 +148,18 @@ def _force_ipv4_database_url(url: str) -> str:
         parsed = urllib.parse.urlparse(url)
         if not parsed.hostname:
             return url
-        # Resolve apenas IPv4 (AF_INET)
-        infos = socket.getaddrinfo(parsed.hostname, None, socket.AF_INET)
-        if not infos:
-            return url
-        ipv4 = infos[0][4][0]
+        # Resolve apenas IPv4 usando gethostbyname (mais simples e direto)
+        ipv4 = socket.gethostbyname(parsed.hostname)
         # Substitui hostname pelo IP v4 diretamente na URL
         # Mantem tudo (usuario, senha, porta, path, query)
         netloc = f"{parsed.username}:{parsed.password}@{ipv4}:{parsed.port}"
-        return urllib.parse.urlunparse(
-            parsed._replace(netloc=netloc)
-        )
-    except Exception:
-        # Falha silenciosa: mantem URL original
+        new_url = urllib.parse.urlunparse(parsed._replace(netloc=netloc))
+        # Log seguro (sem senha)
+        print(f"[DB-CONFIG] IPv4 resolvido para {parsed.hostname}: {ipv4}", flush=True)
+        return new_url
+    except Exception as exc:
+        # Falha silenciosa: mantem URL original, mas loga o erro
+        print(f"[DB-CONFIG] Falha ao resolver IPv4, usando hostname original: {exc}", flush=True)
         return url
 
 
