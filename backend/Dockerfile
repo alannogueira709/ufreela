@@ -10,14 +10,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Argumentos para build (não ficam na imagem final)
-ARG FIELD_ENCRYPTION_KEY=""
-ENV FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY}
-ARG DJANGO_SECRET_KEY=""
-ENV DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-
-# Coleta arquivos estáticos para o WhiteNoise servir
-RUN python manage.py collectstatic --noinput
+# Coleta arquivos estáticos usando valores dummy temporários.
+# As chaves reais são injetadas pelo Secret Manager em runtime.
+# Usa variáveis inline (não persistem na imagem) para evitar
+# que valores sensíveis fiquem nas camadas do Docker.
+RUN DJANGO_SECRET_KEY=build-only FIELD_ENCRYPTION_KEY=build-only \
+    python manage.py collectstatic --noinput
 
 # Cloud Run exige porta 8080
 ENV PORT=8080
