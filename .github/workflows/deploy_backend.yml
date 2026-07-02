@@ -60,6 +60,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             FIELD_ENCRYPTION_KEY=${{ steps.fernet.outputs.key }}
+            DJANGO_SECRET_KEY=build-only-${{ steps.fernet.outputs.key }}
 
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2

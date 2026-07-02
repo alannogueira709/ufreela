@@ -10,9 +10,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Argumento para build (não fica na imagem final)
+# Argumentos para build (não ficam na imagem final)
 ARG FIELD_ENCRYPTION_KEY=""
 ENV FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY}
+ARG DJANGO_SECRET_KEY=""
+ENV DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
 
 # Coleta arquivos estáticos para o WhiteNoise servir
 RUN python manage.py collectstatic --noinput
