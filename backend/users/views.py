@@ -134,7 +134,38 @@ class HealthCheckView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        return Response({"status": "ok"})
+        checks = {
+            "status": "ok",
+            "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+            "version": "1.0.0",
+        }
+
+        # Verifica conexão com o banco de dados
+        try:
+            from django.db import connection
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                checks["database"] = "ok"
+        except Exception as exc:
+            checks["status"] = "degraded"
+            checks["database"] = f"error: {exc}"
+
+        # Verifica conexão com Redis (cache/sessões)
+        try:
+            from django.core.cache import cache
+            cache.set("health_check", "ok", timeout=10)
+            redis_value = cache.get("health_check")
+            checks["redis"] = "ok" if redis_value == "ok" else "error: unexpected value"
+        except Exception as exc:
+            checks["status"] = "degraded"
+            checks["redis"] = f"error: {exc}"
+
+        status_code = (
+            status.HTTP_200_OK
+            if checks["status"] == "ok"
+            else status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+        return Response(checks, status=status_code)
 
 
 class RegisterView(APIView):

@@ -49,13 +49,14 @@ if not SECRET_KEY:
         raise RuntimeError("DJANGO_SECRET_KEY nao configurada.")
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost"])
-# Cloud Run define automaticamente o K_SERVICE; aceita o hostname gerado
-_cloudrun_host = os.environ.get("K_SERVICE")
-if _cloudrun_host and _cloudrun_host not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(f"{_cloudrun_host}-*.run.app")
-# Permite todos os hosts do Cloud Run para health checks
-if "*.run.app" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append("*.run.app")
+# Cloud Run gera hostnames aleatórios: servico-hash-region.a.run.app
+# Aceita qualquer hostname do Cloud Run para health checks e deploys
+if "*.a.run.app" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("*.a.run.app")
+
+# Força HTTPS no Cloud Run (que usa proxy reverso)
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None = None):
@@ -296,6 +297,8 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
 }
 
 # ── Logging ───────────────────────────────────────────────
+# Cloud Run: usa apenas console (logs vão para Cloud Logging).
+# FileHandler foi removido pois o filesystem do Cloud Run é efêmero.
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -311,16 +314,10 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'django_errors.log'),
-            'formatter': 'verbose',
-        },
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'WARNING',
             'propagate': True,
         },
