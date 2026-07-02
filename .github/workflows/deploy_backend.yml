@@ -1,4 +1,4 @@
-name: Build e Deploy do Backend
+name: Build e Deploy do Backend no Cloud Run
 
 on:
   push:
@@ -8,28 +8,36 @@ on:
       - ".github/workflows/deploy_backend.yml"
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-backend
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: southamerica-east1
+  SERVICE_NAME: ufreela-backend
+  ARTIFACT_REGISTRY_REPO: ufreela-backend
+  IMAGE_NAME: ufreela-backend
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      id-token: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: github-actions@ufreela-501113.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
 
       - name: Generate Fernet key for build
         id: fernet
@@ -37,34 +45,48 @@ jobs:
           KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
           echo "key=$KEY" >> "$GITHUB_OUTPUT"
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=sha-
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
             FIELD_ENCRYPTION_KEY=${{ steps.fernet.outputs.key }}
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to Render
-        uses: johnbeynon/render-deploy-action@v0.0.8
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service-id: ${{ secrets.RENDER_SERVICE_ID }}
-          api-key: ${{ secrets.RENDER_API_KEY }}
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          flags: --allow-unauthenticated --port=8080 --memory=1Gi --cpu=1 --concurrency=80 --max-instances=10
+          env_vars: |
+            DEBUG=False
+            DJANGO_SETTINGS_MODULE=core.settings
+            ACCOUNT_EMAIL_VERIFICATION=mandatory
+            ALLOWED_HOSTS=api.ufreela.com.br,*.run.app
+            AUTH_COOKIE_SECURE=1
+            CORS_ALLOWED_ORIGINS=https://ufreela.com.br,https://www.ufreela.com.br
+            CSRF_TRUSTED_ORIGINS=https://ufreela.com.br,https://www.ufreela.com.br
+            FRONTEND_URL=https://ufreela.com.br
+          secrets: |
+            DJANGO_SECRET_KEY=django-secret-key:latest
+            DATABASE_URL=database-url:latest
+            FIELD_ENCRYPTION_KEY=field-encryption-key:latest
+            REDIS_URL=redis-url:latest
+            STRIPE_SECRET_KEY=stripe-secret-key:latest
+            STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest
+            GOOGLE_CLIENT_ID=google-client-id:latest
+            GOOGLE_CLIENT_SECRET=google-client-secret:latest
+            GITHUB_CLIENT_ID=github-client-id:latest
+            GITHUB_CLIENT_SECRET=github-client-secret:latest
+            RESEND_API_KEY=resend-api-key:latest
+            RESEND_FROM_EMAIL=resend-from-email:latest
+
+      - name: Show deploy URL
+        run: echo "Deploy realizado em ${{ steps.deploy.outputs.url }}"

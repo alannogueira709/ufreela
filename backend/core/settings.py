@@ -11,8 +11,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
-import socket
-import urllib.parse
 from datetime import timedelta
 from pathlib import Path
 
@@ -51,10 +49,13 @@ if not SECRET_KEY:
         raise RuntimeError("DJANGO_SECRET_KEY nao configurada.")
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost"])
-# Render health checks podem usar o hostname .onrender.com internamente
-_onrender_host = os.environ.get("RENDER_SERVICE_NAME")
-if _onrender_host and _onrender_host not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(_onrender_host)
+# Cloud Run define automaticamente o K_SERVICE; aceita o hostname gerado
+_cloudrun_host = os.environ.get("K_SERVICE")
+if _cloudrun_host and _cloudrun_host not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(f"{_cloudrun_host}-*.run.app")
+# Permite todos os hosts do Cloud Run para health checks
+if "*.run.app" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("*.run.app")
 
 
 def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None = None):
@@ -108,6 +109,7 @@ if not FIELD_ENCRYPTION_KEY:
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -136,39 +138,22 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "core.wsgi.application"
 
-CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", ["http://localhost:3000"])
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    ["http://localhost:3000", "https://ufreela.com.br", "https://www.ufreela.com.br"],
+)
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", ["http://localhost:3000"])
-
-
-def _force_ipv4_database_url(url: str) -> str:
-    """Render nao roteia IPv6 de saida; substitui hostname pelo IPv4 diretamente."""
-    try:
-        parsed = urllib.parse.urlparse(url)
-        if not parsed.hostname:
-            return url
-        # Resolve apenas IPv4 usando gethostbyname (mais simples e direto)
-        ipv4 = socket.gethostbyname(parsed.hostname)
-        # Substitui hostname pelo IP v4 diretamente na URL
-        # Mantem tudo (usuario, senha, porta, path, query)
-        netloc = f"{parsed.username}:{parsed.password}@{ipv4}:{parsed.port}"
-        new_url = urllib.parse.urlunparse(parsed._replace(netloc=netloc))
-        # Log seguro (sem senha)
-        print(f"[DB-CONFIG] IPv4 resolvido para {parsed.hostname}: {ipv4}", flush=True)
-        return new_url
-    except Exception as exc:
-        # Falha silenciosa: mantem URL original, mas loga o erro
-        print(f"[DB-CONFIG] Falha ao resolver IPv4, usando hostname original: {exc}", flush=True)
-        return url
+CSRF_TRUSTED_ORIGINS = env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    ["http://localhost:3000", "https://ufreela.com.br", "https://www.ufreela.com.br"],
+)
 
 
 if os.environ.get("DATABASE_URL"):
-    _raw_db_url = os.environ.get("DATABASE_URL")
-    _ipv4_db_url = _force_ipv4_database_url(_raw_db_url)
     DATABASES = {
         "default": dj_database_url.config(
-            default=_ipv4_db_url,
+            default=os.environ.get("DATABASE_URL"),
             conn_max_age=600,
             ssl_require=not DEBUG,
         )
@@ -284,6 +269,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

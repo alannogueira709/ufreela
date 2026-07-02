@@ -1,0 +1,55 @@
+name: Rodar Migrations Manualmente
+
+on:
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: southamerica-east1
+  SERVICE_NAME: ufreela-backend
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: github-actions@ufreela-501113.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Run migrations on Cloud Run
+        run: |
+          IMAGE=${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/ufreela-backend/ufreela-backend:latest
+
+          # Cria ou atualiza o job de migrations
+          if gcloud run jobs describe django-migrate --region=${{ env.GCP_REGION }} > /dev/null 2>&1; then
+            echo "Job já existe, atualizando..."
+            gcloud run jobs update django-migrate \
+              --image=$IMAGE \
+              --region=${{ env.GCP_REGION }} \
+              --set-secrets=DJANGO_SECRET_KEY=django-secret-key:latest,DATABASE_URL=database-url:latest,FIELD_ENCRYPTION_KEY=field-encryption-key:latest \
+              --set-env-vars=DJANGO_SETTINGS_MODULE=core.settings,DEBUG=False \
+              --command=python,manage.py,migrate \
+              --max-retries=1
+          else
+            echo "Criando novo job..."
+            gcloud run jobs create django-migrate \
+              --image=$IMAGE \
+              --region=${{ env.GCP_REGION }} \
+              --set-secrets=DJANGO_SECRET_KEY=django-secret-key:latest,DATABASE_URL=database-url:latest,FIELD_ENCRYPTION_KEY=field-encryption-key:latest \
+              --set-env-vars=DJANGO_SETTINGS_MODULE=core.settings,DEBUG=False \
+              --command=python,manage.py,migrate \
+              --max-retries=1
+          fi
+
+          gcloud run jobs execute django-migrate --region=${{ env.GCP_REGION }} --wait

@@ -9,8 +9,17 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-RUN chmod +x /app/entrypoint.sh
 
-EXPOSE 8000
+# Argumento para build (não fica na imagem final)
+ARG FIELD_ENCRYPTION_KEY=""
+ENV FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY}
 
-ENTRYPOINT ["sh", "/app/entrypoint.sh"]
+# Coleta arquivos estáticos para o WhiteNoise servir
+RUN python manage.py collectstatic --noinput
+
+# Cloud Run exige porta 8080
+ENV PORT=8080
+EXPOSE 8080
+
+# Usa gunicorn com workers baseados em CPU (Cloud Run limita CPU)
+CMD exec gunicorn core.wsgi:application --bind :$PORT --workers 2 --threads 4 --timeout 0
