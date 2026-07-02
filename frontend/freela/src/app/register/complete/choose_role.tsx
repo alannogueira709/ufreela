@@ -49,7 +49,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.28, ease: "easeOut" },
+    transition: { duration: 0.28, ease: "easeOut" as const },
   },
 };
 
@@ -167,8 +167,10 @@ export default function ChooseRole({
           className="rounded-full bg-blue-600 px-8 hover:bg-blue-700"
           disabled={!selected}
           onClick={() => {
-            updateData({ role: selected });
-            onNext();
+            if (selected) {
+              updateData({ role: selected });
+              onNext();
+            }
           }}
         >
           Vamos la!

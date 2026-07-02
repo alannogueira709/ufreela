@@ -439,19 +439,16 @@ export function JobPostForm() {
                     Prazo de Entrega
                   </label>
                   <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className={[
-                          "flex h-14 w-full items-center gap-3 rounded-2xl border bg-slate-100 px-4 text-sm transition-colors hover:border-blue-300",
-                          formData.deadline ? "border-blue-200 text-slate-800" : "border-transparent text-slate-400",
-                        ].join(" ")}
-                      >
-                        <CalendarIcon className="size-4 shrink-0" />
-                        {formData.deadline
-                          ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(formData.deadline)
-                          : "Selecione uma data limite"}
-                      </button>
+                    <PopoverTrigger
+                      className={[
+                        "flex h-14 w-full items-center gap-3 rounded-2xl border bg-slate-100 px-4 text-sm transition-colors hover:border-blue-300",
+                        formData.deadline ? "border-blue-200 text-slate-800" : "border-transparent text-slate-400",
+                      ].join(" ")}
+                    >
+                      <CalendarIcon className="size-4 shrink-0" />
+                      {formData.deadline
+                        ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(formData.deadline)
+                        : "Selecione uma data limite"}
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar

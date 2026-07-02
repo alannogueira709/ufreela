@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -50,7 +51,7 @@ function LinkedInIcon() {
 const providers: Array<{
   id: SocialProvider;
   label: string;
-  Icon: () => JSX.Element;
+  Icon: () => React.ReactElement;
 }> = [
   { id: "google", label: "Google", Icon: GoogleIcon },
   { id: "github", label: "GitHub", Icon: GitHubIcon },

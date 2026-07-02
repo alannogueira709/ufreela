@@ -29,7 +29,7 @@ import {
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { getAvatarUrl } from "@/lib/avatar";
 import { getPublisherProfile } from "@/lib/public-service";
-import type { PublisherProfileResponse } from "@/types/public";
+import type { PublisherProfileResponse } from "@/lib/public-service";
 import { ShareDialog } from "@/components/shared/ShareDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";

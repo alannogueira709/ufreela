@@ -57,10 +57,8 @@ type SkillLevelOption = {
 };
 
 const skillItemSchema = z.object({
-  skill_id: z.coerce.number().min(1, "Selecione uma habilidade."),
-  skill_level: z.enum(["beginner", "intermediate", "advanced"], {
-    errorMap: () => ({ message: "Selecione um nivel valido." }),
-  }),
+  skill_id: z.number().min(1, "Selecione uma habilidade."),
+  skill_level: z.enum(["beginner", "intermediate", "advanced"]),
 });
 
 const skillsFormSchema = z.object({

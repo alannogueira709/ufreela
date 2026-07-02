@@ -27,6 +27,7 @@ export interface FreelancerProfileResponse {
   hourly_rate: string | null;
   mean_eval: string;
   finished_jobs: number;
+  is_saved?: boolean;
   skills: {
     skill_id: number;
     skill_name: string;
@@ -144,10 +145,14 @@ function mapOpportunityToJob(opportunity: Opportunity): Job {
     badge: opportunity.status === "open" ? "Open" : "Closed",
     badgeTone: opportunity.status === "open" ? "blue" : "cyan",
     postedAt: formatRelativePostedAt(opportunity.created_at),
+    postedAtHours: 0,
     title: opportunity.title,
     description: opportunity.description,
     tags: opportunity.skills.map((skill) => skill.skill_name).slice(0, 5),
+    category: "Desenvolvimento e TI",
+    experienceLevel: "Intermediário",
     budget: formatBudget(opportunity.budget_min, opportunity.budget_max),
+    budgetAmount: parseFloat(opportunity.budget_min || "0"),
     budgetType: "Budget",
     duration: opportunity.xp_level ? opportunity.xp_level.toUpperCase() : "N/A",
     durationLabel: "Nivel",
