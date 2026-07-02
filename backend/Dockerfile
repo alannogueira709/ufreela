@@ -14,7 +14,9 @@ COPY . .
 # As chaves reais são injetadas pelo Secret Manager em runtime.
 # Usa variáveis inline (não persistem na imagem) para evitar
 # que valores sensíveis fiquem nas camadas do Docker.
-RUN DJANGO_SECRET_KEY=build-only FIELD_ENCRYPTION_KEY=build-only \
+# Usa chaves dummy com formato válido apenas para o collectstatic.
+# As chaves reais são injetadas pelo Secret Manager em runtime.
+RUN DJANGO_SECRET_KEY=build-only-secret-key-12345 FIELD_ENCRYPTION_KEY=6aSBE7FD9poZOqxvEjzKVWYAOxxsjoWRyo9CqPd5y78= \
     python manage.py collectstatic --noinput
 
 # Cloud Run exige porta 8080
