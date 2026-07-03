@@ -24,14 +24,13 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Link Vercel Project
-        working-directory: ./frontend/freela
         run: |
-          mkdir -p .vercel
-          echo '{"orgId":"'${{ secrets.VERCEL_ORG_ID }}'","projectId":"'${{ secrets.VERCEL_PROJECT_ID }}'"}' > .vercel/project.json
+          mkdir -p frontend/freela/.vercel
+          echo '{"orgId":"'${{ secrets.VERCEL_ORG_ID }}'","projectId":"'${{ secrets.VERCEL_PROJECT_ID }}'"}' > frontend/freela/.vercel/project.json
 
       - name: Deploy to Vercel
-        working-directory: ./frontend/freela
         run: |
+          cd frontend/freela
           vercel deploy --prod --yes \
             --token=${{ secrets.VERCEL_TOKEN }}
         env:
