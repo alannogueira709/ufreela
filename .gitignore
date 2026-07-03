@@ -35,3 +35,5 @@ bruno_opportunities_mock.json
 gerar_mock.py
 
 report.html
+.vercel
+.env*
