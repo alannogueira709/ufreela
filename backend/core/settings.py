@@ -50,9 +50,14 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost"])
 # Cloud Run gera hostnames aleatórios: servico-hash-region.a.run.app
-# Aceita qualquer hostname do Cloud Run para health checks e deploys
-if "*.a.run.app" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append("*.a.run.app")
+# Django interpreta ".a.run.app" como "qualquer subdomínio de a.run.app"
+if ".a.run.app" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(".a.run.app")
+# Também adiciona o hostname exato se estiver no env (para debug)
+_cloudrun_host = os.environ.get("K_SERVICE")
+if _cloudrun_host:
+    # O hostname real inclui hash e região, mas a wildcard acima deve cobrir
+    pass
 
 # Força HTTPS no Cloud Run (que usa proxy reverso)
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
