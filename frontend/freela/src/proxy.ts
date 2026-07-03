@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedRoutePrefixes = ["/register/complete", "/welcome"];
+const protectedRoutePrefixes = [
+  "/register/complete",
+  "/welcome",
+  "/messages",
+  "/proposals",
+  "/profile",
+  "/admin",
+  "/jobs/post",
+  "/hire",
+];
 
 function isStaticAsset(pathname: string) {
   return (

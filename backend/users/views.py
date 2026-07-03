@@ -1,6 +1,9 @@
 from django.conf import settings
+from django.db import connections
+from django.core.cache import cache
 from django.contrib.auth import logout as django_logout
 from django.shortcuts import redirect
+from django.utils.text import slugify
 from django.utils.decorators import method_decorator
 from jobs.serializers import OpportunityListSerializer
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -73,6 +76,10 @@ class CsrfTokenView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        # Garante que o navegador tenha um sessionid cookie antes de iniciar o
+        # fluxo OAuth. O allauth precisa desse cookie para armazenar o state.
+        if not request.session.session_key:
+            request.session.save()
         return Response({"message": "CSRF cookie definido com sucesso."})
 
 
@@ -126,6 +133,25 @@ class SocialLoginSuccessView(APIView):
 
         refresh = RefreshToken.for_user(request.user)
         response = redirect(get_frontend_redirect_url(request.user))
+        attach_auth_cookies(response, str(refresh.access_token), str(refresh))
+        return response
+
+
+class SocialSessionView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response(
+                {"authenticated": False},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        refresh = RefreshToken.for_user(request.user)
+        response = Response({
+            "authenticated": True,
+            "redirect_url": get_frontend_redirect_url(request.user),
+        })
         attach_auth_cookies(response, str(refresh.access_token), str(refresh))
         return response
 
@@ -199,9 +225,19 @@ class CompleteRegistrationView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            OnboardingService.complete(request.user, serializer.to_dto())
+            user = OnboardingService.complete(request.user, serializer.to_dto())
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from core.email_service import EmailService
+            email_service = EmailService()
+            role = user.role.role_name if user.role else ""
+            email_service.send_welcome_email(user, role=role)
+        except Exception:
+            import logging
+            logger = logging.getLogger("django")
+            logger.exception("Erro ao enviar email de boas-vindas")
 
         return Response({"message": "Cadastro finalizado."})
 
@@ -228,7 +264,43 @@ class UserMeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        return Response(self._serialize_user(request.user))
+
+    def patch(self, request):
         user = request.user
+        role = user.role.role_name if user.role else None
+        profile_override = None
+
+        if role == "freelancer":
+            freelancer, _ = Freelancer.objects.get_or_create(user_id=user)
+            if "hourly_rate" in request.data:
+                freelancer.hourly_rate = request.data.get("hourly_rate") or None
+            if "professional_level" in request.data:
+                freelancer.professional_level = request.data.get("professional_level") or ""
+            if "description" in request.data:
+                freelancer.description = request.data.get("description") or ""
+            freelancer.save()
+            profile_override = freelancer
+
+            if "skills" in request.data:
+                self._replace_freelancer_skills(freelancer, request.data.get("skills") or [])
+
+        elif role == "publisher":
+            publisher, _ = Publisher.objects.get_or_create(user_id=user)
+            if "company_name" in request.data:
+                publisher.company_name = request.data.get("company_name") or ""
+            if "company_document" in request.data:
+                publisher.cnpj = request.data.get("company_document") or ""
+            elif "cnpj" in request.data:
+                publisher.cnpj = request.data.get("cnpj") or ""
+            publisher.save()
+            profile_override = publisher
+        else:
+            return Response({"error": "Perfil de usuario nao configurado."}, status=400)
+
+        return Response(self._serialize_user(user, profile_override=profile_override))
+
+    def _serialize_user(self, user, profile_override=None):
         first_name = (user.name or "").strip()
         last_name = (user.last_name or "").strip()
         display_name = " ".join(filter(None, [first_name, last_name]))
@@ -236,17 +308,70 @@ class UserMeView(APIView):
         if not display_name:
             display_name = (user.email or "").split("@")[0]
 
-        return Response(
-            {
-                "id": user.id,
-                "email": user.email,
-                "first_name": first_name,
-                "last_name": last_name,
-                "display_name": display_name,
-                "role": user.role.role_name if user.role else None,
-                "profile_img": user.profile_img.url if user.profile_img else None,
-            }
-        )
+        payload = {
+            "id": user.id,
+            "email": user.email,
+            "first_name": first_name,
+            "last_name": last_name,
+            "display_name": display_name,
+            "role": user.role.role_name if user.role else None,
+            "profile_img": user.profile_img.url if user.profile_img else None,
+        }
+
+        if payload["role"] == "freelancer" and (
+            profile_override is not None or hasattr(user, "freelancer_profile")
+        ):
+            freelancer = profile_override or user.freelancer_profile
+            payload.update(
+                {
+                    "hourly_rate": str(freelancer.hourly_rate) if freelancer.hourly_rate else None,
+                    "professional_level": freelancer.professional_level,
+                    "description": freelancer.description,
+                    "skills": [
+                        {
+                            "name": item.skill.skill_name,
+                            "level": item.skill_level,
+                        }
+                        for item in freelancer.skills.select_related("skill").all()
+                    ],
+                }
+            )
+
+        if payload["role"] == "publisher" and (
+            profile_override is not None or hasattr(user, "publisher_profile")
+        ):
+            publisher = profile_override or user.publisher_profile
+            payload.update(
+                {
+                    "company_name": publisher.company_name,
+                    "company_document": publisher.cnpj,
+                }
+            )
+
+        return payload
+
+    def _replace_freelancer_skills(self, freelancer, skills):
+        FreelancerSkill.objects.filter(freelancer=freelancer).delete()
+        for item in skills:
+            if isinstance(item, str):
+                name = item.strip()
+                level = FreelancerSkill.SkillLevel.INTERMEDIATE
+            else:
+                name = str(item.get("name", "")).strip()
+                level = item.get("level") or FreelancerSkill.SkillLevel.INTERMEDIATE
+
+            if not name:
+                continue
+
+            skill, _ = Skill.objects.get_or_create(
+                skill_slug=slugify(name),
+                defaults={"skill_name": name},
+            )
+            FreelancerSkill.objects.update_or_create(
+                freelancer=freelancer,
+                skill=skill,
+                defaults={"skill_level": level},
+            )
 
 
 class SkillListView(APIView):
@@ -359,6 +484,13 @@ class PublisherProfileView(APIView):
             )
 
         user = publisher.user_id
+        is_saved = False
+        if request.user.is_authenticated:
+            is_saved = SavedProfile.objects.filter(
+                user=request.user,
+                saved_user=user,
+            ).exists()
+
         opportunities = (
             Opportunity.objects.filter(publisher=publisher)
             .select_related("publisher__user_id", "category")
@@ -374,6 +506,7 @@ class PublisherProfileView(APIView):
                 "profile_img": user.profile_img.url if user.profile_img else None,
                 "company_name": publisher.company_name,
                 "mean_eval": str(publisher.mean_eval),
+                "is_saved": is_saved,
                 "opportunities": OpportunityListSerializer(opportunities, many=True).data,
             }
         )
@@ -392,6 +525,13 @@ class FreelancerProfileView(APIView):
             )
 
         user = freelancer.user_id
+        is_saved = False
+        if request.user.is_authenticated:
+            is_saved = SavedProfile.objects.filter(
+                user=request.user,
+                saved_user=user,
+            ).exists()
+
         skills = (
             FreelancerSkill.objects.filter(freelancer=freelancer)
             .select_related("skill__category")
@@ -409,6 +549,7 @@ class FreelancerProfileView(APIView):
                 "hourly_rate": str(freelancer.hourly_rate) if freelancer.hourly_rate is not None else None,
                 "mean_eval": str(freelancer.mean_eval),
                 "finished_jobs": freelancer.finished_jobs,
+                "is_saved": is_saved,
                 "skills": [
                     {
                         "skill_id": item.skill.skill_id,
@@ -473,3 +614,191 @@ class SaveProfileToggleView(APIView):
         ).exists()
 
         return Response({"saved": is_saved}, status=status.HTTP_200_OK)
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        from core.email_service import EmailService
+
+        email = request.data.get("email")
+        if not email:
+            return Response(
+                {"error": "O campo email é obrigatório."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(email=email)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            reset_url = f"{settings.FRONTEND_URL}/reset-password?uidb64={uid}&token={token}"
+
+            email_service = EmailService()
+            email_service.send_password_reset_email(user, reset_url)
+        except User.DoesNotExist:
+            pass
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("django")
+            logger.error(f"Erro ao enviar email de reset de senha: {str(e)}")
+            return Response(
+                {"error": "Erro ao enviar e-mail de recuperação. Tente novamente mais tarde."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {"message": "Se o e-mail informado estiver cadastrado, um link de redefinição foi enviado."},
+            status=status.HTTP_200_OK
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_decode
+        from django.utils.encoding import force_str
+
+        uidb64 = request.data.get("uidb64")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
+
+        if not uidb64 or not token or not new_password:
+            return Response(
+                {"error": "Os campos uidb64, token e new_password são obrigatórios."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response(
+                {"error": "Link de redefinição inválido ou expirado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not default_token_generator.check_token(user, token):
+            return Response(
+                {"error": "Link de redefinição inválido ou expirado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            validate_password(new_password, user)
+        except DjangoValidationError as e:
+            return Response(
+                {"error": e.messages},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response(
+            {"message": "Senha redefinida com sucesso!"},
+            status=status.HTTP_200_OK
+        )
+
+
+class UserDataExportView(APIView):
+    """LGPD: export all personal data belonging to the authenticated user."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        data = {
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "username": user.username,
+                "name": user.name,
+                "last_name": user.last_name,
+                "role": user.role.role_name if user.role else None,
+                "is_active": user.is_active,
+                "date_joined": user.date_joined.isoformat() if user.date_joined else None,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+            },
+            "social_accounts": [],
+            "profile": {},
+            "saved_profiles": [],
+        }
+
+        try:
+            freelancer = user.freelancer_profile
+            data["profile"]["freelancer"] = {
+                "description": freelancer.description,
+                "professional_level": freelancer.professional_level,
+                "hourly_rate": str(freelancer.hourly_rate) if freelancer.hourly_rate else None,
+                "finished_jobs": freelancer.finished_jobs,
+                "mean_eval": str(freelancer.mean_eval),
+            }
+        except (Freelancer.DoesNotExist, AttributeError):
+            pass
+
+        try:
+            publisher = user.publisher_profile
+            data["profile"]["publisher"] = {
+                "company_name": publisher.company_name,
+                "description": publisher.description,
+                "website": publisher.website,
+            }
+        except (Publisher.DoesNotExist, AttributeError):
+            pass
+
+        for account in user.socialaccount_set.all():
+            data["social_accounts"].append({
+                "provider": account.provider,
+                "uid": account.uid,
+                "extra_data": account.extra_data,
+                "last_login": account.last_login.isoformat() if account.last_login else None,
+            })
+
+        for saved in SavedProfile.objects.filter(user=user):
+            data["saved_profiles"].append(str(saved.saved_user_id))
+
+        return Response({"data": data})
+
+
+class UserDeleteAccountView(APIView):
+    """LGPD: anonymize/delete the authenticated user's account."""
+
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+
+        # Remove connected social accounts first to avoid orphaned data.
+        user.socialaccount_set.all().delete()
+
+        # Anonymize personal identifiers.
+        import uuid
+        anonymous_suffix = uuid.uuid4().hex[:12]
+        user.email = f"deleted_{anonymous_suffix}@anon.ufreela"
+        user.username = f"deleted_{anonymous_suffix}"
+        user.name = "Usuário excluído"
+        user.last_name = ""
+        user.is_active = False
+        user.set_unusable_password()
+
+        if user.profile_img:
+            user.profile_img.delete(save=False)
+            user.profile_img = None
+
+        user.save()
+
+        response = Response(
+            {"message": "Conta excluída com sucesso."},
+            status=status.HTTP_200_OK,
+        )
+        return clear_auth_cookies(response)

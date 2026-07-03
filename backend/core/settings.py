@@ -41,27 +41,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = env_bool("DEBUG", False)
 
 # SECURITY WARNING: keep the secret key used in production secret.
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
     if DEBUG:
         SECRET_KEY = "dev-only-insecure-secret-key"
     else:
         raise RuntimeError("DJANGO_SECRET_KEY nao configurada.")
 
-ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost"])
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost", "backend"])
 # Cloud Run gera hostnames aleatórios: servico-hash-region.a.run.app
 # Django interpreta ".a.run.app" como "qualquer subdomínio de a.run.app"
 if ".a.run.app" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(".a.run.app")
-# Também adiciona o hostname exato se estiver no env (para debug)
-_cloudrun_host = os.environ.get("K_SERVICE")
-if _cloudrun_host:
-    # O hostname real inclui hash e região, mas a wildcard acima deve cobrir
-    pass
-
-# Força HTTPS no Cloud Run (que usa proxy reverso)
-SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None = None):
@@ -83,18 +74,21 @@ def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None
 
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.sites",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.headless",
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.github",
     "allauth.socialaccount.providers.linkedin_oauth2",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "corsheaders",
     "rest_framework",
@@ -104,6 +98,11 @@ INSTALLED_APPS = [
     "users",
     "jobs",
     "finances",
+    "settings_app",
+    "integrations",
+    "messages.apps.MessagesConfig",
+    "notifications",
+    "channels",
 ]
 
 AUTH_USER_MODEL = "users.User"
@@ -130,7 +129,7 @@ ROOT_URLCONF = "core.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "core" / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -179,6 +178,26 @@ else:
 SITE_ID = 1
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
+# Garante que o host do FRONTEND_URL seja considerado seguro para redirects
+# de login social (validação is_safe_url do Django/allauth).
+try:
+    from urllib.parse import urlparse
+
+    _frontend_host = urlparse(FRONTEND_URL).hostname
+    if _frontend_host and _frontend_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_frontend_host)
+except Exception:
+    pass
+
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET", "")
+LINKEDIN_CLIENT_ID = os.environ.get("LINKEDIN_CLIENT_ID", "")
+LINKEDIN_CLIENT_SECRET = os.environ.get("LINKEDIN_CLIENT_SECRET", "")
+LINKEDIN_API_VERSION = os.environ.get("LINKEDIN_API_VERSION", "202601")
+GITHUB_API_VERSION = os.environ.get("GITHUB_API_VERSION", "2026-03-10")
+
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
@@ -187,9 +206,14 @@ AUTHENTICATION_BACKENDS = (
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_EMAIL_VERIFICATION = os.environ.get("ACCOUNT_EMAIL_VERIFICATION", "none")
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_QUERY_EMAIL = True
+# When a social provider returns a verified email that already belongs to a
+# local user, log that user in and connect the social account automatically.
+# Safe for trusted providers such as Google/GitHub.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 
 LOGIN_REDIRECT_URL = "/api/auth/social/success/"
 LOGOUT_REDIRECT_URL = "/login/"
@@ -232,6 +256,48 @@ REST_FRAMEWORK = {
     ],
 }
 
+
+redis_url = os.environ.get("REDIS_URL")
+if redis_url:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [redis_url],
+            },
+        },
+    }
+else:
+    # Fallback para dev (InMemoryChannelLayer)
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
+
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+# Supabase Storage (S3-compatible) is used in production for user uploads.
+if os.environ.get("SUPABASE_S3_ENDPOINT"):
+    STORAGES["default"]["BACKEND"] = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_ACCESS_KEY_ID = os.environ.get("SUPABASE_ACCESS_KEY")
+    AWS_SECRET_ACCESS_KEY = os.environ.get("SUPABASE_SECRET_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.environ.get("SUPABASE_BUCKET_NAME", "ufreela-media")
+    AWS_S3_ENDPOINT_URL = os.environ.get("SUPABASE_S3_ENDPOINT")
+    AWS_S3_REGION_NAME = os.environ.get("SUPABASE_REGION", "sa-east-1")
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = "public-read"
+    AWS_QUERYSTRING_AUTH = False
+
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -245,10 +311,10 @@ AUTH_COOKIE_ACCESS = "access_token"
 AUTH_COOKIE_REFRESH = "refresh_token"
 AUTH_COOKIE_SECURE = env_bool("AUTH_COOKIE_SECURE", not DEBUG)
 AUTH_COOKIE_HTTP_ONLY = True
-AUTH_COOKIE_SAMESITE = os.environ.get(
-    "AUTH_COOKIE_SAMESITE",
-    "Lax" if DEBUG else "None",
-)
+# Lax is sufficient for both local dev (localhost:3000 -> localhost:8000) and
+# production (ufreela.com.br -> api.ufreela.com.br) because they share the same
+# site. None would require Secure=True and complicates local testing.
+AUTH_COOKIE_SAMESITE = env_list("AUTH_COOKIE_SAMESITE", ["Lax"])[0]
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -269,14 +335,16 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
 ]
 
+
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
+ASGI_APPLICATION = 'core.asgi.application'
+
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -290,6 +358,31 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = int(
 )
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ── Email & SMTP Configuration ──────────────────────────────
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "uFreela <no-reply@ufreela.com.br>")
+
+if DEBUG and not EMAIL_HOST_USER:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# ── Resend (Transactional Email API) ──────────────────────
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM_EMAIL = os.environ.get(
+    "RESEND_FROM_EMAIL", "uFreela <noreply@ufreela.com.br>"
+)
+
+# ── Allauth Headless (SPA Auth API) ────────────────────────
+HEADLESS_ONLY = True
+HEADLESS_FRONTEND_URLS = {
+    "socialaccount_login_error": f"{FRONTEND_URL}/auth/social/callback",
+}
 
 # ── Security & Throttling ──────────────────────────────────
 REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
@@ -328,3 +421,21 @@ LOGGING = {
         },
     },
 }
+
+if not DEBUG:
+    # Render and most reverse proxies terminate TLS; let the proxy handle HTTP
+    # -> HTTPS redirects instead of Django to avoid redirect loops.
+    SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", False)
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_SAMESITE = "Lax"
+    X_FRAME_OPTIONS = "DENY"

@@ -16,9 +16,6 @@ from .serializers import (
     ProposalStatusUpdateSerializer,
     SkillSerializer,
 )
-from finances.models import Contract
-from django.utils import timezone
-
 
 
 def _is_int_like(value: str | None) -> bool:
@@ -343,16 +340,13 @@ class ProposalDetailUpdateView(APIView):
         serializer.is_valid(raise_exception=True)
         
         new_status = serializer.validated_data.get('status')
-        updated_proposal = serializer.save()
-
         if new_status == Proposal.Status.ACCEPTED:
-            # Create a contract automatically
-            Contract.objects.create(
-                proposal=updated_proposal,
-                start_date=timezone.now().date(),
-                total_value=updated_proposal.proposed_value,
-                status=Contract.Status.ACTIVE
+            return Response(
+                {"error": "Use o fluxo de pagamento em escrow para aceitar propostas."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+        updated_proposal = serializer.save()
 
         response_serializer = ProposalSerializer(updated_proposal)
         return Response(response_serializer.data)

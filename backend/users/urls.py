@@ -1,12 +1,16 @@
 from django.urls import include, path
 
+from allauth.urls import build_provider_urlpatterns
+
 from .views import (CompleteRegistrationView, CookieTokenRefreshView,
                     CsrfTokenView, CustomTokenObtainPairView,
                     FeaturedFreelancersView, FeaturedOpportunitiesView,
                     FreelancerProfileView, FreelancerSkillsView,
                     HealthCheckView, LogoutView, PublisherProfileView,
                     RegisterView, SkillListView, SocialLoginSuccessView,
-                    UserMeView, SaveProfileToggleView)
+                    SocialSessionView, UserDataExportView, UserDeleteAccountView,
+                    UserMeView, SaveProfileToggleView, PasswordResetRequestView,
+                    PasswordResetConfirmView)
 
 urlpatterns = [
     path("health/", HealthCheckView.as_view()),
@@ -21,11 +25,16 @@ urlpatterns = [
         CompleteRegistrationView.as_view(),
         name="register_complete",
     ),
-    path("auth/social/", include("allauth.urls")),
+    path("auth/social/", include(build_provider_urlpatterns())),
     path(
         "auth/social/success/",
         SocialLoginSuccessView.as_view(),
         name="social_login_success",
+    ),
+    path(
+        "auth/social/session/",
+        SocialSessionView.as_view(),
+        name="social_session",
     ),
     path("skills/", SkillListView.as_view(), name="skills_list"),
     path(
@@ -46,4 +55,8 @@ urlpatterns = [
     path("profile/publisher/<str:user_id>/", PublisherProfileView.as_view(), name="publisher_profile"),
     path("profile/freelancer/<str:user_id>/", FreelancerProfileView.as_view(), name="freelancer_profile"),
     path("profile/save/<str:user_id>/", SaveProfileToggleView.as_view(), name="save_profile_toggle"),
+    path("auth/password/reset/", PasswordResetRequestView.as_view(), name="password_reset_request"),
+    path("auth/password/reset/confirm/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
+    path("users/me/export/", UserDataExportView.as_view(), name="user_data_export"),
+    path("users/me/delete/", UserDeleteAccountView.as_view(), name="user_delete_account"),
 ]

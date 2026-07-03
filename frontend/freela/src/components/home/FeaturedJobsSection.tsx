@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { getCategories, getFeaturedJobs } from "@/lib/public-service";
 import type { Job } from "@/types/job";
@@ -28,12 +27,6 @@ const experienceOptions = [
 type ExperienceFilter = (typeof experienceOptions)[number]["id"];
 
 const ITEMS_PER_PAGE = 5;
-
-const sortOptions = [
-  { label: "Mais Recentes", value: "recent" },
-  { label: "Maior Orcamento", value: "budget-desc" },
-  { label: "Menor Orcamento", value: "budget-asc" },
-] as const;
 
 const badgeToneClassName = {
   blue: "bg-blue-50 text-blue-600",
@@ -119,8 +112,6 @@ export default function FeaturedJobsSection() {
 
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
-      const joinedTags = job.tags.join(" ").toLowerCase();
-
       const matchesCategory =
         selectedCategory === "all"
           ? true
@@ -367,7 +358,7 @@ export default function FeaturedJobsSection() {
             ) : null}
 
             {paginatedJobs.length > 0 ? (
-            paginatedJobs.map((job) => (
+              paginatedJobs.map((job) => (
               <article
                 key={job.id}
                 className="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm transition-all duration-300 ease-in-out hover:border-slate-300 hover:shadow-md"
@@ -387,68 +378,69 @@ export default function FeaturedJobsSection() {
                       <span>{job.postedAt}</span>
                     </div>
 
-                    <div className="space-y-3">
-                      <h3 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
-                        {job.title}
-                      </h3>
-                      <p className="max-w-3xl text-sm font-medium leading-7 text-slate-500">
-                        {job.description}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {job.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex w-full flex-row items-end justify-between gap-6 lg:w-auto lg:flex-col lg:items-end">
-                    <div className="space-y-4 text-right">
-                      <div>
-                        <p className="font-heading text-3xl font-bold tracking-tight text-slate-950">
-                          {job.budget}
-                        </p>
-                        <p className="text-sm font-medium text-slate-400">
-                          {job.budgetType}
+                      <div className="space-y-3">
+                        <h3 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
+                          {job.title}
+                        </h3>
+                        <p className="max-w-3xl text-sm font-medium leading-7 text-slate-500">
+                          {job.description}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-lg font-semibold text-slate-950">
-                          {job.duration}
-                        </p>
-                        <p className="text-sm font-medium text-slate-400">
-                          {job.durationLabel}
-                        </p>
+
+                      <div className="flex flex-wrap gap-2">
+                        {job.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500"
+                          >
+                            {tag}
+                          </span>
+                        ))}
                       </div>
                     </div>
 
-                    <Link
-                      href={job.href}
-                      className="rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition-colors duration-300 ease-in-out hover:bg-blue-700"
-                    >
-                      Aplicar Agora
-                    </Link>
+                    <div className="flex w-full flex-row items-end justify-between gap-6 lg:w-auto lg:flex-col lg:items-end">
+                      <div className="space-y-4 text-right">
+                        <div>
+                          <p className="font-heading text-3xl font-bold tracking-tight text-slate-950">
+                            {job.budget}
+                          </p>
+                          <p className="text-sm font-medium text-slate-400">
+                            {job.budgetType}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-semibold text-slate-950">
+                            {job.duration}
+                          </p>
+                          <p className="text-sm font-medium text-slate-400">
+                            {job.durationLabel}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Link
+                        href={job.href}
+                        className="rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition-colors duration-300 ease-in-out hover:bg-blue-700"
+                      >
+                        Aplicar Agora
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))
-          ) : (
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-7 text-center shadow-sm">
-              <h3 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
-                Nenhuma vaga encontrada
-              </h3>
-              <p className="mt-3 text-sm font-medium leading-7 text-slate-500">
-                Ajuste os filtros ou limpe a selecao para visualizar outras
-                oportunidades em destaque.
-              </p>
-            </div>
-          )}
+                </article>
+              ))
+            ) : (
+              <div className="rounded-[2rem] border border-slate-200 bg-white p-7 text-center shadow-sm">
+                <h3 className="font-heading text-2xl font-bold tracking-tight text-slate-950">
+                  Nenhuma vaga encontrada
+                </h3>
+                <p className="mt-3 text-sm font-medium leading-7 text-slate-500">
+                  Ajuste os filtros ou limpe a selecao para visualizar outras
+                  oportunidades em destaque.
+                </p>
+              </div>
+            )}
+          </div>
 
           {!isLoading && totalPages > 1 && (
             <div className="pt-4">
@@ -514,7 +506,6 @@ export default function FeaturedJobsSection() {
             </div>
           )}
         </div>
-      </div>
       </div>
     </section>
   );

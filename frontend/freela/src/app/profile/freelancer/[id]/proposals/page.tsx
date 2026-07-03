@@ -260,12 +260,18 @@ export default function FreelancerProposalsPage() {
                   </div>
 
                   <div className="mt-5 flex justify-end">
-                    <Link href={`/jobs/${proposal.opportunity.opportunity_id}`}>
+                    <Link
+                      href={
+                        proposal.status === "accepted" && user?.id
+                          ? `/profile/freelancer/${user.id}/dashboard`
+                          : `/jobs/${proposal.opportunity.opportunity_id}`
+                      }
+                    >
                       <Button
                         variant="outline"
                         className="h-10 rounded-full border-slate-200 px-4 text-slate-700"
                       >
-                        Ver vaga
+                        {proposal.status === "accepted" ? "Abrir dashboard" : "Ver vaga"}
                       </Button>
                     </Link>
                   </div>

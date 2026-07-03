@@ -11,8 +11,12 @@ import Navbar from "@/components/shared/Navbar";
 import { Button } from "@/components/ui/button";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { getProposalById, updateProposalStatus } from "@/lib/proposal-service";
+import { billingApi } from "@/lib/settings-api";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Proposal } from "@/types/proposal";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
+import { CheckoutDialog } from "./checkout-dialog";
 
 function formatCurrency(value: string | number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -35,6 +39,8 @@ function formatPublished(value: string) {
   return `Enviado há ${diffDays} dia${diffDays > 1 ? "s" : ""}`;
 }
 
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
+
 export function ProposalDetailsPage() {
   const params = useParams<{ id: string }>();
   const proposalId = Array.isArray(params?.id) ? params.id[0] : params?.id;
@@ -45,6 +51,9 @@ export function ProposalDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string>("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     if (!proposalId) return;
@@ -65,6 +74,25 @@ export function ProposalDetailsPage() {
     void loadProposal();
   }, [proposalId]);
 
+  const handleOpenCheckout = async () => {
+    if (!proposalId || !proposal) return;
+    
+    try {
+      setIsUpdating(true);
+      setError("");
+      setSuccessMessage("");
+      const res = await billingApi.createPaymentIntent({
+        proposal_id: proposalId,
+      });
+      setClientSecret(res.client_secret);
+      setIsCheckoutOpen(true);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível iniciar o pagamento."));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleUpdateStatus = async (status: "accepted" | "rejected") => {
     if (!proposalId) return;
     
@@ -72,6 +100,9 @@ export function ProposalDetailsPage() {
       setIsUpdating(true);
       const updated = await updateProposalStatus(proposalId, status);
       setProposal(updated);
+      if (status === "accepted" && user?.id) {
+        router.push(`/profile/publisher/${user.id}/dashboard`);
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, "Não foi possível atualizar o status da proposta."));
     } finally {
@@ -79,8 +110,20 @@ export function ProposalDetailsPage() {
     }
   };
 
+  const refreshProposal = async () => {
+    if (!proposalId) return;
+    const updated = await getProposalById(proposalId);
+    setProposal(updated);
+  };
+
   const isPublisher = user?.role === "publisher";
   const isPending = proposal?.status === "pending";
+  const dashboardHref =
+    user?.role === "publisher"
+      ? `/profile/publisher/${user.id}/dashboard`
+      : user?.role === "freelancer"
+        ? `/profile/freelancer/${user.id}/dashboard`
+        : "/";
 
   if (authLoading || isLoading) {
     return (
@@ -110,6 +153,12 @@ export function ProposalDetailsPage() {
           {error && (
             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {successMessage}
             </div>
           )}
 
@@ -187,17 +236,41 @@ export function ProposalDetailsPage() {
                       </Button>
                       <Button
                         disabled={isUpdating}
-                        onClick={() => handleUpdateStatus("accepted")}
+                        onClick={handleOpenCheckout}
                         className="h-12 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
                       >
                         <CheckCircle className="mr-2 size-4" />
-                        Aceitar e Iniciar Contrato
+                        Aceitar e Pagar Contrato
                       </Button>
                     </div>
+                  )}
+                  {proposal.status === "accepted" && (
+                    <Link href={dashboardHref}>
+                      <Button className="h-12 rounded-full bg-blue-600 px-6 text-white hover:bg-blue-700">
+                        Ir para dashboard do contrato
+                      </Button>
+                    </Link>
                   )}
                 </div>
               </div>
             </div>
+          )}
+
+          {clientSecret && (
+            <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+              <CheckoutDialog
+                isOpen={isCheckoutOpen}
+                onOpenChange={setIsCheckoutOpen}
+                onSuccess={async () => {
+                  setIsCheckoutOpen(false);
+                  setSuccessMessage(
+                    "Pagamento confirmado. O contrato sera ativado em instantes."
+                  );
+                  await refreshProposal();
+                }}
+                amountFormatted={formatCurrency(proposal?.proposed_value || 0)}
+              />
+            </Elements>
           )}
         </section>
       </main>

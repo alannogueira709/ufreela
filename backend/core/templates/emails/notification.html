@@ -1,0 +1,38 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<tr>
+  <td style="padding: 40px;">
+    <h2 style="margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em;">
+      {{ title }}
+    </h2>
+    <p style="margin: 0 0 8px; font-size: 15px; color: #475569; line-height: 1.7;">
+      Olá{% if user_name %}, <strong>{{ user_name }}</strong>{% endif %}!
+    </p>
+
+    {% for paragraph in message_lines %}
+    <p style="margin: 0 0 8px; font-size: 15px; color: #475569; line-height: 1.7;">
+      {{ paragraph }}
+    </p>
+    {% endfor %}
+
+    {% if action_url and action_label %}
+    <table cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+      <tr>
+        <td align="center">
+          <a href="{{ action_url }}"
+             style="display: inline-block; padding: 14px 40px; border-radius: 999px; background-color: #2563eb; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; letter-spacing: 0.01em;">
+            {{ action_label }}
+          </a>
+        </td>
+      </tr>
+    </table>
+    {% endif %}
+
+    <p style="margin: 24px 0 0; font-size: 14px; color: #94a3b8; line-height: 1.5;">
+      Esta é uma notificação automática do uFreela. Para gerenciar suas preferências de notificação, 
+      acesse as configurações da sua conta.
+    </p>
+  </td>
+</tr>
+{% endblock %}

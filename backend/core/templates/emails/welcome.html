@@ -1,0 +1,41 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<tr>
+  <td style="padding: 40px;">
+    <h2 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em;">
+      Bem-vindo ao uFreela! 🚀
+    </h2>
+    <p style="margin: 0 0 24px; font-size: 15px; color: #475569; line-height: 1.7;">
+      Olá{% if user_name %}, <strong>{{ user_name }}</strong>{% endif %}!
+    </p>
+    <p style="margin: 0 0 8px; font-size: 15px; color: #475569; line-height: 1.7;">
+      Sua conta no <strong>uFreela</strong> foi criada com sucesso. Estamos muito felizes em ter você conosco!
+    </p>
+    <p style="margin: 0 0 24px; font-size: 15px; color: #475569; line-height: 1.7;">
+      {% if role == "freelancer" %}
+        Complete seu perfil, destaque suas habilidades e comece a encontrar projetos que combinam com você.
+      {% elif role == "publisher" %}
+        Publique suas vagas e encontre os melhores talentos para seus projetos.
+      {% else %}
+        Complete seu cadastro e descubra todas as oportunidades que preparamos para você.
+      {% endif %}
+    </p>
+
+    <table cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+      <tr>
+        <td align="center">
+          <a href="{{ frontend_url }}/login"
+             style="display: inline-block; padding: 14px 40px; border-radius: 999px; background-color: #2563eb; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; letter-spacing: 0.01em;">
+            Acessar Minha Conta
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin: 0; font-size: 14px; color: #64748b; line-height: 1.6;">
+      Se tiver qualquer dúvida, entre em contato conosco respondendo a este e-mail.
+    </p>
+  </td>
+</tr>
+{% endblock %}

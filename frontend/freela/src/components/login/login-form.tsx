@@ -35,7 +35,7 @@ export function LoginForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(
     searchParams.get("error") === "social_auth_failed"
-      ? "Nao foi possivel autenticar com o provedor escolhido."
+      ? "Não foi possível autenticar com o provedor escolhido."
       : ""
   );
 
@@ -87,6 +87,7 @@ export function LoginForm({
         <SocialAuthButtons
           activeProvider={activeSocialProvider}
           onStart={setActiveSocialProvider}
+          onError={setError}
         />
 
         <FieldSeparator>Ou entre com email</FieldSeparator>
@@ -120,7 +121,7 @@ export function LoginForm({
               Senha
             </FieldLabel>
             <Link
-              href="#"
+              href="/reset-password"
               className="text-xs font-semibold text-blue-600 transition-colors hover:text-blue-700"
             >
               Esqueceu a senha?
@@ -153,7 +154,7 @@ export function LoginForm({
         </Field>
 
         <FieldDescription className="text-center text-sm text-slate-500">
-          Nao tem uma conta?{" "}
+          Não tem uma conta?{" "}
           <Link
             href="/register"
             className="font-semibold text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline"
@@ -163,7 +164,7 @@ export function LoginForm({
         </FieldDescription>
 
         <div className="border-t border-slate-100 pt-5 text-xs leading-6 text-slate-400">
-          Ao continuar, voce concorda com nossos Termos, Politica de
+          Ao continuar, você concorda com nossos Termos, Política de
           Privacidade e Diretrizes da Plataforma.
         </div>
       </FieldGroup>

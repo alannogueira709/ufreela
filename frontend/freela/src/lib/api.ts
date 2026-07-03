@@ -117,6 +117,40 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+export const chatApi = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+});
+
+chatApi.interceptors.request.use(async (config) => {
+  const method = config.method?.toLowerCase();
+  const isMutatingRequest = method ? MUTATING_METHODS.has(method) : false;
+
+  if (isMutatingRequest) {
+    const csrfToken = await ensureCsrfToken();
+
+    if (csrfToken) {
+      setRequestHeader(config, CSRF_HEADER_NAME, csrfToken);
+    }
+  }
+
+  if (!isFormData(config.data)) {
+    setRequestHeader(config, "Content-Type", "application/json");
+  }
+
+  return config;
+});
+
+export const chatService = {
+  getConversations: () => chatApi.get("/chat/conversations/"),
+  getMessages: (conversationId: number) =>
+    chatApi.get(`/chat/conversations/${conversationId}/messages/`),
+  createConversation: (otherUserId: string | number) =>
+    chatApi.post("/chat/conversations/", { other_user: otherUserId }),
+  markAsRead: (conversationId: number) =>
+    chatApi.patch(`/chat/conversations/${conversationId}/read/`),
+};
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {

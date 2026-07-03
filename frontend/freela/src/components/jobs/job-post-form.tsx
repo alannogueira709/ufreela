@@ -440,6 +440,7 @@ export function JobPostForm() {
                   </label>
                   <Popover>
                     <PopoverTrigger
+                      type="button"
                       className={[
                         "flex h-14 w-full items-center gap-3 rounded-2xl border bg-slate-100 px-4 text-sm transition-colors hover:border-blue-300",
                         formData.deadline ? "border-blue-200 text-slate-800" : "border-transparent text-slate-400",
@@ -568,10 +569,10 @@ export function JobPostForm() {
                 <Info className="size-4" />
               </div>
               <div>
-                <p className="font-semibold text-slate-800">Architect&apos;s Tip</p>
+                <p className="font-semibold text-slate-800">Dica para postagem</p>
                 <p>
-                  Detailed descriptions and clear budget ranges attract better proposals.
-                  Consider including constraints, expected milestones and review cadence.
+                 Descrições detalhadas e faixas orçamentárias claras atraem propostas melhores.
+                 Considere incluir restrições, marcos esperados e a frequência de revisões.
                 </p>
               </div>
             </div>

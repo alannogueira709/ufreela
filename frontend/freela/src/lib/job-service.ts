@@ -37,6 +37,20 @@ export async function getOpportunityById(opportunityId: string | number) {
   return response.data;
 }
 
+export async function getSavedOpportunityStatus(opportunityId: string | number) {
+  const response = await api.get<{ saved: boolean }>(
+    `/opportunities/save/${opportunityId}/`,
+  );
+  return response.data;
+}
+
+export async function toggleSavedOpportunity(opportunityId: string | number) {
+  const response = await api.post<{ saved: boolean }>(
+    `/opportunities/save/${opportunityId}/`,
+  );
+  return response.data;
+}
+
 export async function createOpportunity(payload: CreateOpportunityPayload) {
   const response = await api.post<Opportunity>("/opportunities/", payload);
   return response.data;

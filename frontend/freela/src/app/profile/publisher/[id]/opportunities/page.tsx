@@ -478,13 +478,19 @@ export default function PublisherOpportunitiesPage() {
                               }`}>
                                 • {proposal.status === "accepted" ? "Aceita" : proposal.status === "rejected" ? "Recusada" : "Pendente"}
                               </span>
-                              <Link href={`/proposals/${proposal.proposal_id}`}>
+                              <Link
+                                href={
+                                  proposal.status === "accepted" && user?.id
+                                    ? `/profile/publisher/${user.id}/dashboard`
+                                    : `/proposals/${proposal.proposal_id}`
+                                }
+                              >
                                 <Button
                                   variant="outline"
                                   className="h-9 rounded-full border-slate-200 bg-white px-4 text-xs font-semibold text-[#3d5afe] hover:bg-blue-50 hover:text-blue-700"
                                 >
                                   <Eye className="mr-1.5 size-3.5" />
-                                  Ver Detalhes
+                                  {proposal.status === "accepted" ? "Abrir Dashboard" : "Ver Detalhes"}
                                 </Button>
                               </Link>
                             </div>

@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import { getAvatarUrl } from "@/lib/avatar";
 import type { Candidate } from "@/types/candidate";
-import type { Job } from "@/types/job";
+import type { ExperienceLevel, Job, JobCategory } from "@/types/job";
 import type { Opportunity } from "@/types/opportunity";
 
 interface ApiFreelancer {
@@ -27,7 +27,7 @@ export interface FreelancerProfileResponse {
   hourly_rate: string | null;
   mean_eval: string;
   finished_jobs: number;
-  is_saved?: boolean;
+  is_saved: boolean;
   skills: {
     skill_id: number;
     skill_name: string;
@@ -49,12 +49,33 @@ export interface PublisherProfileResponse {
   profile_img: string | null;
   company_name: string;
   mean_eval: string;
+  is_saved: boolean;
   opportunities: Opportunity[];
 }
 
 function getApiOrigin() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
   return baseUrl.endsWith("/api") ? baseUrl.slice(0, -4) : baseUrl;
+}
+
+function getServerApiBaseUrl() {
+  // On the server (Server Components / SSR inside Docker), use the internal
+  // network hostname so we reach the backend container directly.
+  return (
+    process.env.INTERNAL_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:8000/api"
+  );
+}
+
+async function serverGet<T>(path: string): Promise<T> {
+  const base = getServerApiBaseUrl().replace(/\/$/, "");
+  const url = `${base}${path}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Server fetch failed: ${res.status} ${res.statusText} — ${url}`);
+  }
+  return res.json() as Promise<T>;
 }
 
 export function resolveMediaUrl(path: string | null | undefined) {
@@ -89,6 +110,12 @@ function formatRelativePostedAt(value: string) {
   return rtf.format(diffDays, "day");
 }
 
+function getPostedAtHours(value: string) {
+  const postedDate = new Date(value);
+  const diffMs = Date.now() - postedDate.getTime();
+  return Math.max(0, Math.round(diffMs / (1000 * 60 * 60)));
+}
+
 function parseNumber(value: string | null | undefined, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -115,6 +142,45 @@ function formatBudget(min: string | null, max: string | null) {
     currency: "BRL",
     maximumFractionDigits: 0,
   }).format(min ? minNumber : maxNumber);
+}
+
+function getBudgetAmount(min: string | null, max: string | null) {
+  const minNumber = parseNumber(min, 0);
+  const maxNumber = parseNumber(max, 0);
+
+  if (min && max) {
+    return (minNumber + maxNumber) / 2;
+  }
+
+  return min ? minNumber : maxNumber;
+}
+
+function mapCategory(categoryName: string | undefined): JobCategory {
+  const normalized = categoryName?.toLowerCase() ?? "";
+
+  if (normalized.includes("design")) {
+    return "Design";
+  }
+
+  if (normalized.includes("ia") || normalized.includes("ai")) {
+    return "Serviços de IA";
+  }
+
+  return "Desenvolvimento e TI";
+}
+
+function mapExperienceLevel(level: string | null | undefined): ExperienceLevel {
+  const normalized = level?.toLowerCase() ?? "";
+
+  if (normalized === "junior") {
+    return "Iniciante";
+  }
+
+  if (normalized === "senior") {
+    return "Especialista";
+  }
+
+  return "Intermediário";
 }
 
 function mapProfessionalLevel(level: string | null | undefined) {
@@ -145,14 +211,14 @@ function mapOpportunityToJob(opportunity: Opportunity): Job {
     badge: opportunity.status === "open" ? "Open" : "Closed",
     badgeTone: opportunity.status === "open" ? "blue" : "cyan",
     postedAt: formatRelativePostedAt(opportunity.created_at),
-    postedAtHours: 0,
+    postedAtHours: getPostedAtHours(opportunity.created_at),
     title: opportunity.title,
     description: opportunity.description,
     tags: opportunity.skills.map((skill) => skill.skill_name).slice(0, 5),
-    category: "Desenvolvimento e TI",
-    experienceLevel: "Intermediário",
+    category: mapCategory(opportunity.category?.category_name),
+    experienceLevel: mapExperienceLevel(opportunity.xp_level),
     budget: formatBudget(opportunity.budget_min, opportunity.budget_max),
-    budgetAmount: parseFloat(opportunity.budget_min || "0"),
+    budgetAmount: getBudgetAmount(opportunity.budget_min, opportunity.budget_max),
     budgetType: "Budget",
     duration: opportunity.xp_level ? opportunity.xp_level.toUpperCase() : "N/A",
     durationLabel: "Nivel",
@@ -177,18 +243,17 @@ function mapFreelancerToCandidate(freelancer: ApiFreelancer): Candidate {
 }
 
 export async function getCategories() {
-  const response = await api.get<{ category_id: number; category_name: string; category_slug: string }[]>("/categories/");
-  return response.data;
+  return serverGet<{ category_id: number; category_name: string; category_slug: string }[]>("/categories/");
 }
 
 export async function getFeaturedJobs() {
-  const response = await api.get<Opportunity[]>("/opportunities/");
-  return response.data.map(mapOpportunityToJob);
+  const data = await serverGet<Opportunity[]>("/opportunities/");
+  return data.map(mapOpportunityToJob);
 }
 
 export async function getFeaturedCandidates() {
-  const response = await api.get<ApiFreelancer[]>("/freelancers/featured/");
-  return response.data.map(mapFreelancerToCandidate);
+  const data = await serverGet<ApiFreelancer[]>("/freelancers/featured/");
+  return data.map(mapFreelancerToCandidate);
 }
 
 export async function getFreelancerProfile(userId: string) {
@@ -202,5 +267,42 @@ export async function getPublisherProfile(userId: string) {
   const response = await api.get<PublisherProfileResponse>(
     `/profile/publisher/${userId}/`,
   );
+  return response.data;
+}
+
+export async function getReviewsSummary(revieweeId: string) {
+  // Simple in-memory cache to avoid repeated requests during the same session
+  // Cache key lifetime: 60 segundos
+  const cacheKey = `reviews_summary:${revieweeId}`;
+  try {
+    const cached = (globalThis as any).__REVIEWS_CACHE__ || {};
+    const entry = cached[cacheKey];
+    const now = Date.now();
+    if (entry && entry.expires > now) {
+      return entry.value as { avg: string; count: number };
+    }
+  } catch {
+    // ignore cache errors
+  }
+
+  const response = await api.get<{ avg: string; count: number }>(
+    `/billing/reviews/summary/?reviewee=${revieweeId}`,
+  );
+
+  try {
+    (globalThis as any).__REVIEWS_CACHE__ = (globalThis as any).__REVIEWS_CACHE__ || {};
+    (globalThis as any).__REVIEWS_CACHE__[cacheKey] = {
+      value: response.data,
+      expires: Date.now() + 60 * 1000,
+    };
+  } catch {
+    // ignore cache set errors
+  }
+
+  return response.data;
+}
+
+export async function toggleSavedProfile(userId: string) {
+  const response = await api.post<{ saved: boolean }>(`/profile/save/${userId}/`);
   return response.data;
 }

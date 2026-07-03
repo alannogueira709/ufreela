@@ -8,6 +8,9 @@ services:
       - POSTGRES_USER=freela_user
       - POSTGRES_PASSWORD=freela_pass
 
+  redis:
+    image: redis:7-alpine
+
   backend:
     build:
       context: ./backend
@@ -18,8 +21,11 @@ services:
       - ./backend:/app
     env_file:
       - ./backend/.env
+    environment:
+      - ALLOWED_HOSTS=127.0.0.1,localhost,backend
     depends_on:
       - db
+      - redis
 
   frontend:
     build:
@@ -32,7 +38,11 @@ services:
       - /app/node_modules
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+      - INTERNAL_API_URL=http://backend:8000/api
+      - NODE_OPTIONS=--max-old-space-size=2048
       - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51TU8o9APTCG5nRHKZYCDHbI36x9WSDUG7SddK7KBET2GzuOQ4qf6fl1cZQMWHBbKjBKMyyo0o9wEOQisnw8554mK00fhxv1ViT
     depends_on:
       - backend         
 
