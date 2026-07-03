@@ -54,6 +54,9 @@ ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost", "backend"])
 # Django interpreta ".a.run.app" como "qualquer subdomínio de a.run.app"
 if ".a.run.app" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(".a.run.app")
+# Também aceita o hostname exato do Cloud Run (fallback seguro)
+if "ufreela-backend-6gsduuo54q-rj.a.run.app" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("ufreela-backend-6gsduuo54q-rj.a.run.app")
 
 
 def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None = None):
