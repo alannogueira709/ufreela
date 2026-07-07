@@ -37,3 +37,9 @@ gerar_mock.py
 report.html
 .vercel
 .env*
+
+# Arquivos de documentação interna (contêm dados sensíveis da infraestrutura)
+backend/ROTATE_ENCRYPTION_KEY.md
+backend/DEPLOY_GUIDE.md
+backend/*GUIDE*.md
+backend/*DEPLOY*.md
