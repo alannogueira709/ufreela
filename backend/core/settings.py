@@ -183,6 +183,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 # Garante que o host do FRONTEND_URL seja considerado seguro para redirects
 # de login social (validação is_safe_url do Django/allauth).
+# Força novo deploy para atualizar secrets.
 try:
     from urllib.parse import urlparse
 
@@ -259,6 +260,16 @@ REST_FRAMEWORK = {
     ],
 }
 
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ.get(
+            "REDIS_CACHE_URL",
+            os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1"),
+        ),
+    }
+}
 
 redis_url = os.environ.get("REDIS_URL")
 if redis_url:
@@ -395,6 +406,9 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "anon": "100/min",  # Previne bots varrendo a API
     "user": "1000/min", # Previne force brute de usuários logados
+    "login": "5/min",          # Brute-force de credenciais
+    "register": "3/min",       # Abuso de criação de contas
+    "password_reset": "3/min", # Spam de e-mails de reset
 }
 
 # ── Logging ───────────────────────────────────────────────
