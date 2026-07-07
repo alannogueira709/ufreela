@@ -51,15 +51,11 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost", "backend"])
 # Cloud Run gera hostnames aleatórios.
-# Padrões antigos: servico-hash-region.a.run.app
-# Padrões novos: servico-hash-PROJECT_ID.region.run.app
+# Aceita qualquer subdomínio do Cloud Run sem expor o hostname exato no código.
 if ".a.run.app" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(".a.run.app")
 if ".southamerica-east1.run.app" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(".southamerica-east1.run.app")
-# Também aceita o hostname exato do Cloud Run (fallback seguro)
-if "ufreela-backend-324745990486.southamerica-east1.run.app" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append("ufreela-backend-324745990486.southamerica-east1.run.app")
 
 
 def build_social_app(client_id_env: str, secret_env: str, *, key_env: str | None = None):
