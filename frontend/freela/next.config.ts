@@ -1,17 +1,26 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
-function apiHostname(): string | undefined {
+function apiUrl(): URL | undefined {
   const url = process.env.NEXT_PUBLIC_API_URL;
   if (!url) return undefined;
   try {
-    return new URL(url).hostname;
+    return new URL(url);
   } catch {
     return undefined;
   }
 }
 
+function apiHostname(): string | undefined {
+  return apiUrl()?.hostname;
+}
+
+function apiOrigin(): string | undefined {
+  return apiUrl()?.origin;
+}
+
 const apiHost = apiHostname();
+const connectSrcExtra = apiOrigin() ? ` ${apiOrigin()}` : "";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
@@ -76,7 +85,8 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; " +
               "style-src 'self' 'unsafe-inline'; " +
               "img-src 'self' blob: data: https:; " +
-              "connect-src 'self' https://api.stripe.com; " +
+              `connect-src 'self' https://api.stripe.com${connectSrcExtra}; ` +
+              `form-action 'self'${connectSrcExtra}; ` +
               "frame-src https://js.stripe.com https://hooks.stripe.com; " +
               "font-src 'self';",
           },

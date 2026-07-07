@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerTrigger } from "@/components/ui/drawer"
+import { Drawer, DrawerClose, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerTrigger } from "@/components/ui/drawer"
 import { Separator } from "../ui/separator";
 import { Button } from "../ui/button";
 
@@ -56,13 +56,13 @@ export default function Footer() {
                     <DrawerTitle className="font-heading text-2xl text-slate-900">Sobre o uFreela</DrawerTitle>
                     <Separator />
                     <DrawerDescription className="text-base text-slate-600 text-justify">
-                      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec et justo eu leo venenatis vulputate id sodales ante. Mauris ultricies accumsan eros, sit amet imperdiet elit faucibus a. Morbi nec nulla ex. Aliquam ac placerat ex. Sed gravida lacinia mi, maximus tristique risus finibus vitae. Pellentesque consequat augue ac nulla cursus, at tempus neque dignissim. Integer dignissim, mi eget laoreet vehicula, elit orci dictum leo, quis efficitur quam lorem nec turpis. Etiam ullamcorper est purus, eget aliquet lectus tincidunt ut. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Maecenas in nulla sed nibh interdum sollicitudin commodo consequat enim. Morbi euismod enim eu fringilla malesuada. Fusce sed augue quis risus vehicula venenatis in sit amet ipsum. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Phasellus auctor nibh sed velit convallis, a condimentum risus aliquet. Phasellus congue velit eu ipsum porttitor, ut sodales odio vestibulum. Nunc a eros interdum, efficitur diam ut, feugiat nisi.
-
-                      Curabitur gravida porta turpis at accumsan. Aenean finibus mollis purus a pulvinar. Sed quis facilisis dui. Nam mattis purus id nisi rhoncus, vel mattis nisi placerat. Curabitur tincidunt iaculis diam ut venenatis. Maecenas non felis quis ligula dictum lacinia.
+                      O uFreela foi concebido a partir da necessidade real de criar uma plataforma de oportunidades de trabalho que atendesse às demandas da comunidade acadêmica e do ecossistema de inovação. Pretendemos conectar estudantes talentosos e profissionais no ínicio de suas carreiras com empresas que buscam desenvolver projetos inovadores, promovendo um ambiente de aprendizado, crescimento e colaboração. Nosso objetivo é fortalecer o ecossistema de tecnologia e inovação, oferecendo uma experiência segura, transparente e eficiente para todos os usuários.
                     </DrawerDescription>
                   </DrawerHeader>
                   <DrawerFooter>
-                    <Button className="w-full" variant="link">Fechar</Button>
+                    <DrawerClose asChild>
+                      <Button className="w-fit self-center rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-all duration-300 ease-in-out hover:bg-blue-700" variant="link">Fechar</Button>
+                    </DrawerClose>
                   </DrawerFooter>
                 </DrawerContent>
               </Drawer>

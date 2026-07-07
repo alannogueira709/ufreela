@@ -1,0 +1,83 @@
+name: Rotacionar FIELD_ENCRYPTION_KEY
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Executar em modo simulação (dry-run) primeiro"
+        required: true
+        default: true
+        type: boolean
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: southamerica-east1
+  IMAGE_NAME: ufreela-backend
+
+jobs:
+  rotate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: github-actions@ufreela-501113.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Criar/Atualizar job de rotação
+        run: |
+          IMAGE=${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/ufreela-backend/ufreela-backend:latest
+          CMD="python,manage.py,rotate_encryption_key"
+          
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            CMD="python,manage.py,rotate_encryption_key,--dry-run"
+            echo "🧪 Modo simulação (dry-run)"
+          else
+            echo "⚠️  MODO REAL - DADOS SERÃO RE-CRIPTROGRAFADOS"
+          fi
+
+          gcloud run jobs update rotate-encryption \
+            --image=$IMAGE \
+            --region=${{ env.GCP_REGION }} \
+            --set-secrets=FIELD_ENCRYPTION_KEY=field-encryption-key:latest,DJANGO_SECRET_KEY=django-secret-key:latest,DATABASE_URL=database-url:latest \
+            --set-env-vars=DJANGO_SETTINGS_MODULE=core.settings,DEBUG=False \
+            --command=$CMD \
+            --max-retries=1 || \
+          gcloud run jobs create rotate-encryption \
+            --image=$IMAGE \
+            --region=${{ env.GCP_REGION }} \
+            --set-secrets=FIELD_ENCRYPTION_KEY=field-encryption-key:latest,DJANGO_SECRET_KEY=django-secret-key:latest,DATABASE_URL=database-url:latest \
+            --set-env-vars=DJANGO_SETTINGS_MODULE=core.settings,DEBUG=False \
+            --command=$CMD \
+            --max-retries=1
+
+      - name: Executar rotação
+        run: |
+          echo "🚀 Iniciando rotação..."
+          gcloud run jobs execute rotate-encryption --region=${{ env.GCP_REGION }} --wait
+
+      - name: Resultado
+        run: |
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            echo "✅ Simulação concluída. Verifique os logs acima."
+            echo "Para executar de verdade, rode este workflow novamente com dry_run=false"
+          else
+            echo "✅ Rotação concluída!"
+            echo ""
+            echo "Próximos passos MANUAIS:"
+            echo "1. Teste a aplicação (login, integrações, etc.)"
+            echo "2. Se tudo funcionar, atualize o secret field-encryption-key para conter APENAS a nova chave"
+            echo "3. Faça um novo deploy do backend"
+          fi

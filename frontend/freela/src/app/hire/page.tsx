@@ -94,7 +94,7 @@ export default function HirePage() {
                 Encontre freelancers prontos para o seu proximo projeto.
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-slate-500 md:text-base">
-                Esta primeira versao usa os perfis reais em destaque do backend.
+                Esta primeira versão usa os perfis reais em destaque do backend.
                 Filtros avancados podem entrar depois do fluxo de propostas.
               </p>
             </div>

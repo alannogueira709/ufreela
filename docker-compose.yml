@@ -22,6 +22,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      - PORT=8000
       - ALLOWED_HOSTS=127.0.0.1,localhost,backend
     depends_on:
       - db

@@ -32,8 +32,8 @@ function GuestHome() {
           </h1>
           <p className="max-w-2xl text-sm font-medium text-slate-500 md:text-base">
             Uma plataforma de oportunidades de trabalho feita para a comunidade
-            academica. Conectamos estudantes talentosos a empresas com projetos
-            inovadores, fortalecendo o ecossistema de tecnologia e inovacao.
+            acadêmica. Conectamos estudantes talentosos a empresas com projetos
+            inovadores, fortalecendo o ecossistema de tecnologia e inovação.
           </p>
         </div>
       </section>
@@ -52,8 +52,8 @@ function AdminHome() {
         Painel Administrativo
       </h1>
       <p className="max-w-2xl text-sm font-medium text-slate-500 md:text-base">
-        Supervise usuarios, vagas e relatorios da plataforma a partir de uma
-        visao centralizada.
+        Supervise usuários, vagas e relatórios da plataforma a partir de uma
+        visão centralizada.
       </p>
     </section>
   );
@@ -70,7 +70,7 @@ export default function Home() {
     queryKey: ["freelancer-home", user?.id],
     queryFn: async () => {
       if (!user?.id) {
-        throw new Error("Freelancer nao autenticado.");
+        throw new Error("Freelancer não autenticado.");
       }
 
       return getFreelancerHomeData(user.id);
@@ -86,7 +86,7 @@ export default function Home() {
     queryKey: ["publisher-home", user?.id],
     queryFn: async () => {
       if (!user?.id) {
-        throw new Error("Publisher nao autenticado.");
+        throw new Error("Publisher não autenticado.");
       }
 
       return getPublisherHomeData(user.id);
@@ -132,7 +132,7 @@ export default function Home() {
           freelancerHomeError
             ? getApiErrorMessage(
                 freelancerHomeError,
-                "Nao foi possivel carregar os dados do dashboard do freelancer.",
+                "Não foi possível carregar os dados do dashboard do freelancer.",
               )
             : null
         }
@@ -161,7 +161,7 @@ export default function Home() {
           publisherHomeError
             ? getApiErrorMessage(
                 publisherHomeError,
-                "Nao foi possivel carregar os dados do dashboard do publisher.",
+                "Não foi possível carregar os dados do dashboard do publisher.",
               )
             : null
         }

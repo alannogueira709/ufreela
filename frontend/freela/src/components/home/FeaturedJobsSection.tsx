@@ -17,6 +17,8 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
+
+
 const experienceOptions = [
   { id: "all", label: "Todos os Níveis" },
   { id: "entry", label: "Júnior" },
@@ -57,10 +59,11 @@ export default function FeaturedJobsSection() {
   const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 2000]);
   const [budgetLimits, setBudgetLimits] = useState<[number, number]>([0, 2000]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, selectedExperience, budgetRange]);
+  }, [selectedCategory, selectedExperience, budgetRange, sortOrder]);
 
   useEffect(() => {
     let isMounted = true;
@@ -435,7 +438,7 @@ export default function FeaturedJobsSection() {
                   Nenhuma vaga encontrada
                 </h3>
                 <p className="mt-3 text-sm font-medium leading-7 text-slate-500">
-                  Ajuste os filtros ou limpe a selecao para visualizar outras
+                  Ajuste os filtros ou limpe a seleção para visualizar outras
                   oportunidades em destaque.
                 </p>
               </div>
