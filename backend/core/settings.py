@@ -151,6 +151,11 @@ CORS_ALLOWED_ORIGINS = env_list(
     ["http://localhost:3000", "https://ufreela.com.br", "https://www.ufreela.com.br"],
 )
 CORS_ALLOW_CREDENTIALS = True
+# Permite tambem origens que casem com o regex (defesa contra env var mal preenchida).
+CORS_ALLOWED_ORIGIN_REGEXES = env_list(
+    "CORS_ALLOWED_ORIGIN_REGEXES",
+    [r"^https://(www\.)?ufreela\.com\.br$"],
+)
 
 CSRF_TRUSTED_ORIGINS = env_list(
     "CSRF_TRUSTED_ORIGINS",
@@ -210,7 +215,7 @@ AUTHENTICATION_BACKENDS = (
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = os.environ.get("ACCOUNT_EMAIL_VERIFICATION", "none")
+ACCOUNT_EMAIL_VERIFICATION = os.environ.get("ACCOUNT_EMAIL_VERIFICATION", "mandatory")
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_QUERY_EMAIL = True
 # When a social provider returns a verified email that already belongs to a
@@ -399,6 +404,14 @@ HEADLESS_FRONTEND_URLS = {
 }
 
 # ── Security & Throttling ──────────────────────────────────
+# Rate limits para endpoints headless do allauth (login, signup, reset, etc.)
+ACCOUNT_RATE_LIMITS = {
+    "login": "5/m",
+    "signup": "3/m",
+    "reset_password": "3/m",
+    "reset_password_from_key": "3/m",
+}
+
 REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
     "rest_framework.throttling.AnonRateThrottle",
     "rest_framework.throttling.UserRateThrottle",
@@ -406,9 +419,11 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "anon": "100/min",  # Previne bots varrendo a API
     "user": "1000/min", # Previne force brute de usuários logados
-    "login": "5/min",          # Brute-force de credenciais
-    "register": "3/min",       # Abuso de criação de contas
-    "password_reset": "3/min", # Spam de e-mails de reset
+    "login": "5/min",                   # Brute-force de credenciais
+    "register": "3/min",                # Abuso de criação de contas
+    "password_reset": "3/min",          # Spam de e-mails de reset
+    "password_reset_confirm": "5/min",  # Brute-force de token de reset
+    "refresh": "10/min",                # Rotacao abusiva de refresh tokens
 }
 
 # ── Logging ───────────────────────────────────────────────

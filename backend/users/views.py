@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.db import connections
 from django.core.cache import cache
@@ -13,6 +15,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.token_blacklist.models import (
+    BlacklistedToken,
+    OutstandingToken,
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.application.use_cases.register_user import RegisterUserUseCase
@@ -26,6 +32,13 @@ from .serializers import (CustomTokenObtainPairSerializer,
                           OnboardingSerializer, RegisterSerializer,
                           SkillSerializer)
 from .services import OnboardingService
+from .throttles import (
+    LoginRateThrottle,
+    PasswordResetConfirmRateThrottle,
+    PasswordResetRateThrottle,
+    RefreshRateThrottle,
+    RegisterRateThrottle,
+)
 
 
 def attach_auth_cookies(response, access: str, refresh: str):
@@ -66,6 +79,16 @@ def clear_auth_cookies(response: Response):
     return response
 
 
+def _blacklist_user_tokens(user: User) -> None:
+    """Invalida todos os refresh tokens ativos do usuario."""
+    try:
+        for outstanding in OutstandingToken.objects.filter(user=user):
+            BlacklistedToken.objects.get_or_create(token=outstanding)
+    except Exception:
+        logger = logging.getLogger("django")
+        logger.exception("Erro ao invalidar tokens do usuario")
+
+
 def get_frontend_redirect_url(user: User) -> str:
     path = "/register/complete" if not user.role else "/"
     return f"{settings.FRONTEND_URL}{path}"
@@ -85,6 +108,7 @@ class CsrfTokenView(APIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
+    throttle_classes = [LoginRateThrottle]
     serializer_class = CustomTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
@@ -105,6 +129,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 class CookieTokenRefreshView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [RefreshRateThrottle]
 
     def post(self, request):
         refresh_token = request.COOKIES.get(settings.AUTH_COOKIE_REFRESH)
@@ -174,7 +199,9 @@ class HealthCheckView(APIView):
                 checks["database"] = "ok"
         except Exception as exc:
             checks["status"] = "degraded"
-            checks["database"] = f"error: {exc}"
+            checks["database"] = "error"
+            import logging
+            logging.getLogger("django").exception("Healthcheck DB error")
 
         # Verifica conexão com Redis (cache/sessões)
         try:
@@ -184,7 +211,9 @@ class HealthCheckView(APIView):
             checks["redis"] = "ok" if redis_value == "ok" else "error: unexpected value"
         except Exception as exc:
             checks["status"] = "degraded"
-            checks["redis"] = f"error: {exc}"
+            checks["redis"] = "error"
+            import logging
+            logging.getLogger("django").exception("Healthcheck Redis error")
 
         status_code = (
             status.HTTP_200_OK
@@ -196,6 +225,7 @@ class HealthCheckView(APIView):
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [RegisterRateThrottle]
 
     use_case = RegisterUserUseCase(user_repository=DjangoUserRepository())
 
@@ -440,7 +470,6 @@ class FeaturedFreelancersView(APIView):
             payload.append(
                 {
                     "id": str(user.id),
-                    "email": user.email,
                     "name": user.name,
                     "last_name": user.last_name,
                     "profile_img": user.profile_img.url if user.profile_img else None,
@@ -500,7 +529,6 @@ class PublisherProfileView(APIView):
         return Response(
             {
                 "id": str(user.id),
-                "email": user.email,
                 "name": user.name,
                 "last_name": user.last_name,
                 "profile_img": user.profile_img.url if user.profile_img else None,
@@ -540,7 +568,6 @@ class FreelancerProfileView(APIView):
         return Response(
             {
                 "id": str(user.id),
-                "email": user.email,
                 "name": user.name,
                 "last_name": user.last_name,
                 "profile_img": user.profile_img.url if user.profile_img else None,
@@ -618,6 +645,7 @@ class SaveProfileToggleView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetRateThrottle]
 
     def post(self, request):
         from django.contrib.auth.tokens import default_token_generator
@@ -659,6 +687,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetConfirmRateThrottle]
 
     def post(self, request):
         from django.contrib.auth.tokens import default_token_generator
@@ -702,6 +731,7 @@ class PasswordResetConfirmView(APIView):
 
         user.set_password(new_password)
         user.save()
+        _blacklist_user_tokens(user)
 
         return Response(
             {"message": "Senha redefinida com sucesso!"},
@@ -796,6 +826,7 @@ class UserDeleteAccountView(APIView):
             user.profile_img = None
 
         user.save()
+        _blacklist_user_tokens(user)
 
         response = Response(
             {"message": "Conta excluída com sucesso."},

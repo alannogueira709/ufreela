@@ -29,6 +29,14 @@ def _missing_oauth_settings(*names: str) -> list[str]:
     return [name for name in names if not getattr(settings, name, None)]
 
 
+def _validate_redirect_uri(redirect_uri: str) -> bool:
+    """S permite redirect_uri que inicie com o FRONTEND_URL configurado."""
+    if not redirect_uri:
+        return False
+    frontend_url = getattr(settings, "FRONTEND_URL", "")
+    return bool(frontend_url and redirect_uri.startswith(frontend_url))
+
+
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
 def connect_linkedin(request):
@@ -40,6 +48,9 @@ def connect_linkedin(request):
     redirect_uri = request.data.get("redirect_uri")
     if not code or not redirect_uri:
         return Response({"error": "code and redirect_uri are required"}, status=400)
+
+    if not _validate_redirect_uri(redirect_uri):
+        return Response({"error": "redirect_uri not allowed"}, status=400)
 
     try:
         token_res = requests.post(
@@ -73,11 +84,21 @@ def connect_linkedin(request):
     if not linkedin_id:
         return Response({"error": "LinkedIn profile did not include an id"}, status=400)
 
+    # Impede que um usuario se aproprie da conexao LinkedIn de outro usuario.
+    existing = LinkedInConnection.objects.filter(
+        linkedin_id=linkedin_id
+    ).exclude(user=request.user).first()
+    if existing:
+        return Response(
+            {"error": "Esta conta do LinkedIn ja esta vinculada a outro usuario."},
+            status=status.HTTP_409_CONFLICT,
+        )
+
     expires_in = token_data.get("expires_in", 5184000)
     connection, _ = LinkedInConnection.objects.update_or_create(
+        user=request.user,
         linkedin_id=linkedin_id,
         defaults={
-            "user": request.user,
             "access_token": token_data["access_token"],
             "refresh_token": token_data.get("refresh_token"),
             "expires_at": timezone.now() + timedelta(seconds=expires_in),
@@ -142,10 +163,22 @@ def connect_github(request):
     except requests.RequestException:
         return Response({"error": "Failed to fetch GitHub user"}, status=400)
 
+    github_id = str(github_user["id"])
+
+    # Impede que um usuario se aproprie da conexao GitHub de outro usuario.
+    existing = GitHubConnection.objects.filter(
+        github_id=github_id
+    ).exclude(user=request.user).first()
+    if existing:
+        return Response(
+            {"error": "Esta conta do GitHub ja esta vinculada a outro usuario."},
+            status=status.HTTP_409_CONFLICT,
+        )
+
     connection, _ = GitHubConnection.objects.update_or_create(
-        github_id=str(github_user["id"]),
+        user=request.user,
+        github_id=github_id,
         defaults={
-            "user": request.user,
             "username": github_user["login"],
             "access_token": token_data["access_token"],
             "profile_url": github_user["html_url"],
