@@ -25,12 +25,11 @@ jobs:
 
       - name: Link Vercel Project
         run: |
-          mkdir -p frontend/freela/.vercel
-          echo '{"orgId":"'${{ secrets.VERCEL_ORG_ID }}'","projectId":"'${{ secrets.VERCEL_PROJECT_ID }}'"}' > frontend/freela/.vercel/project.json
+          mkdir -p .vercel
+          echo '{"orgId":"'${{ secrets.VERCEL_ORG_ID }}'","projectId":"'${{ secrets.VERCEL_PROJECT_ID }}'"}' > .vercel/project.json
 
       - name: Deploy to Vercel
         run: |
-          cd frontend/freela
           vercel deploy --prod --yes \
             --token=${{ secrets.VERCEL_TOKEN }}
         env:
