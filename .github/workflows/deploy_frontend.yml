@@ -31,8 +31,10 @@ jobs:
       - name: Deploy to Vercel
         run: |
           vercel deploy --prod --yes \
-            --token=${{ secrets.VERCEL_TOKEN }}
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --build-env NEXT_PUBLIC_API_URL=https://api.ufreela.com.br/api \
+            --env NEXT_PUBLIC_API_URL=https://api.ufreela.com.br/api
         env:
-          NEXT_PUBLIC_API_URL: https://api.ufreela.com.br
+          NEXT_PUBLIC_API_URL: https://api.ufreela.com.br/api
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
