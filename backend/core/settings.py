@@ -199,6 +199,29 @@ try:
 except Exception:
     pass
 
+
+def _registered_domain(hostname: str) -> str:
+    """Heuristica simples para extrair o dominio registrado de um hostname."""
+    hostname = hostname.split(":")[0].lower()
+    parts = hostname.split(".")
+    if len(parts) <= 2:
+        return hostname
+    # eTLD de dois niveis (ex: com.br, co.uk): pega 3 partes.
+    if len(parts[-1]) == 2 and len(parts[-2]) <= 3:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:])
+
+
+try:
+    _frontend_host = urlparse(FRONTEND_URL).hostname or ""
+    _share_site = any(
+        _registered_domain(_frontend_host) == _registered_domain(host)
+        for host in ALLOWED_HOSTS
+        if host and not host.startswith(".")
+    )
+except Exception:
+    _share_site = False
+
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
@@ -331,13 +354,12 @@ AUTH_COOKIE_ACCESS = "access_token"
 AUTH_COOKIE_REFRESH = "refresh_token"
 AUTH_COOKIE_SECURE = env_bool("AUTH_COOKIE_SECURE", not DEBUG)
 AUTH_COOKIE_HTTPONLY = True
-# Em producao o frontend e backend estao em dominios distintos
-# (www.ufreela.com.br -> *.run.app), portanto os cookies precisam ser
-# SameSite=None; Secure para serem enviados em requisicoes cross-site.
-# Em desenvolvimento local (sem HTTPS) usamos Lax.
+# SameSite depende de frontend e backend compartilharem o mesmo dominio
+# registrado (ex: www.ufreela.com.br e api.ufreela.com.br -> ufreela.com.br).
+# Mesmo site -> Lax; sites distintos -> None (requer Secure=True).
 AUTH_COOKIE_SAMESITE = env_list(
     "AUTH_COOKIE_SAMESITE",
-    ["None"] if AUTH_COOKIE_SECURE else ["Lax"],
+    ["Lax"] if (_share_site and AUTH_COOKIE_SECURE) else ["None"] if AUTH_COOKIE_SECURE else ["Lax"],
 )[0]
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -471,11 +493,10 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
-    # SameSite=None e necessario porque o backend (.run.app) e o frontend
-    # (ufreela.com.br) sao sites distintos. O allauth/OAuth precisa do
-    # sessionid no contexto cross-site.
-    SESSION_COOKIE_SAMESITE = "None"
+    # SameSite=Lax quando frontend e backend compartilham o dominio;
+    # SameSite=None quando sao sites distintos (cross-site).
+    SESSION_COOKIE_SAMESITE = "Lax" if _share_site else "None"
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = True
-    CSRF_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SAMESITE = "Lax" if _share_site else "None"
     X_FRAME_OPTIONS = "DENY"
