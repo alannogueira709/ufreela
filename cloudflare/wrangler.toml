@@ -1,0 +1,9 @@
+name = "ufreela-api-proxy"
+main = "index.js"
+compatibility_date = "2024-07-09"
+
+# Rota que o Worker vai interceptar. Com custom_domain = true, o Cloudflare
+# gerencia automaticamente o dominio api.ufreela.com.br para o Worker.
+routes = [
+  { pattern = "api.ufreela.com.br/*", custom_domain = true }
+]

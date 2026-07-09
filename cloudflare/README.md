@@ -1,8 +1,8 @@
 # Proxy Cloudflare para api.ufreela.com.br
 
 Como o Google Cloud Run na regiao `southamerica-east1` nao permite mapear
- dominios customizados sem Load Balancer (pago) ou mudanca de regiao, usamos
- um **Cloudflare Worker** como proxy reverto gratuito.
+dominios customizados sem Load Balancer (pago) ou mudanca de regiao, usamos
+um **Cloudflare Worker** como proxy reverso gratuito.
 
 ## O que esse Worker faz
 
@@ -10,11 +10,29 @@ Como o Google Cloud Run na regiao `southamerica-east1` nao permite mapear
 - Encaminha para `https://ufreela-backend-324745990486.southamerica-east1.run.app/*`
 - Forca o header `Host: api.ufreela.com.br` para que o Django valide o hostname
 e defina cookies para o dominio correto.
-- Suporta HTTP/HTTPS e WebSocket.
+- Funciona para HTTP/HTTPS. WebSockets devem conectar diretamente ao backend
+via `wss://ufreela-backend-324745990486.southamerica-east1.run.app/ws/...`.
 
-## Configuracao no Cloudflare
+## Requisitos
 
-### 1. Criar o registro DNS
+- Node.js 18+
+- Conta Cloudflare com acesso ao dominio `ufreela.com.br`
+
+## Instalacao
+
+### 1. Instalar o Wrangler CLI
+
+```bash
+npm install -g wrangler
+```
+
+### 2. Autenticar no Cloudflare
+
+```bash
+wrangler login
+```
+
+### 3. Configurar o DNS
 
 No Cloudflare Dashboard, va em **DNS > Records**:
 
@@ -24,28 +42,19 @@ No Cloudflare Dashboard, va em **DNS > Records**:
 
 O endereco `100::` e um dummy. O Worker interceptara a requisicao antes dele.
 
-### 2. Criar o Worker
+### 4. Fazer deploy
 
-1. Va em **Workers & Pages > Create application > Create Worker**
-2. De um nome, por exemplo: `ufreela-api-proxy`
-3. Cole o conteudo de `api-proxy-worker.js`
-4. Clique em **Deploy**
+A partir desta pasta (`cloudflare/`):
 
-### 3. Vincular o Worker a rota
+```bash
+cd cloudflare
+wrangler deploy
+```
 
-1. Na pagina do Worker, va em **Triggers > Custom Domains > Add Custom Domain**
-2. Digite: `api.ufreela.com.br`
-3. Salve
+O `wrangler.toml` ja esta configurado para criar o dominio customizado
+`api.ufreela.com.br` automaticamente.
 
-Ou, alternativamente, via **Routes**:
-
-1. Va em **Triggers > Routes > Add route**
-2. Route: `api.ufreela.com.br/*`
-3. Zone: seu dominio `ufreela.com.br`
-4. Service: `ufreela-api-proxy`
-5. Salve
-
-### 4. Testar
+### 5. Testar
 
 ```bash
 curl -I https://api.ufreela.com.br/api/health/
@@ -57,6 +66,12 @@ curl -I -H "Origin: https://www.ufreela.com.br" \
 
 - O plano gratuito do Cloudflare Workers permite **100.000 requisicoes/dia**.
   Se o trafego for maior, sera necessario um plano pago.
-- WebSockets funcionam, mas consomem mais recursos do Worker.
+- WebSockets nao sao suportados por este proxy. Use a URL direta do Cloud Run
+  para conexoes WebSocket.
 - O backend ja deve ter `api.ufreela.com.br` em `ALLOWED_HOSTS` (configurado no
   `deploy_backend.yml`).
+
+## Arquivos
+
+- `index.js` — codigo do Worker
+- `wrangler.toml` — configuracao de deploy
