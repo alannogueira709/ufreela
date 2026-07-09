@@ -82,10 +82,10 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value:
               "default-src 'self'; " +
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; " +
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://static.cloudflareinsights.com; " +
               "style-src 'self' 'unsafe-inline'; " +
               "img-src 'self' blob: data: https:; " +
-              `connect-src 'self' https://api.stripe.com${connectSrcExtra}; ` +
+              `connect-src 'self' https://api.stripe.com https://cloudflareinsights.com${connectSrcExtra}; ` +
               `form-action 'self'${connectSrcExtra}; ` +
               "frame-src https://js.stripe.com https://hooks.stripe.com; " +
               "font-src 'self';",
