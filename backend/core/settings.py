@@ -219,8 +219,17 @@ try:
         for host in ALLOWED_HOSTS
         if host and not host.startswith(".")
     )
+    _shared_domain = _registered_domain(_frontend_host) if _share_site else ""
 except Exception:
     _share_site = False
+    _shared_domain = ""
+
+# Quando frontend e backend compartilham o dominio (ex: www.ufreela.com.br e
+# api.ufreela.com.br), os cookies de sessao/CSRF precisam ter Domain=.ufreela.com.br
+# para que o frontend consiga ler o csrftoken via JavaScript e enviar no header.
+if _shared_domain:
+    CSRF_COOKIE_DOMAIN = f".{_shared_domain}"
+    SESSION_COOKIE_DOMAIN = f".{_shared_domain}"
 
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
