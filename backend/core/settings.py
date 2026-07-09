@@ -329,11 +329,15 @@ SIMPLE_JWT = {
 AUTH_COOKIE_ACCESS = "access_token"
 AUTH_COOKIE_REFRESH = "refresh_token"
 AUTH_COOKIE_SECURE = env_bool("AUTH_COOKIE_SECURE", not DEBUG)
-AUTH_COOKIE_HTTP_ONLY = True
-# Lax is sufficient for both local dev (localhost:3000 -> localhost:8000) and
-# production (ufreela.com.br -> api.ufreela.com.br) because they share the same
-# site. None would require Secure=True and complicates local testing.
-AUTH_COOKIE_SAMESITE = env_list("AUTH_COOKIE_SAMESITE", ["Lax"])[0]
+AUTH_COOKIE_HTTPONLY = True
+# Em producao o frontend e backend estao em dominios distintos
+# (www.ufreela.com.br -> *.run.app), portanto os cookies precisam ser
+# SameSite=None; Secure para serem enviados em requisicoes cross-site.
+# Em desenvolvimento local (sem HTTPS) usamos Lax.
+AUTH_COOKIE_SAMESITE = env_list(
+    "AUTH_COOKIE_SAMESITE",
+    ["None"] if AUTH_COOKIE_SECURE else ["Lax"],
+)[0]
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -466,8 +470,11 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = "Lax"
+    # SameSite=None e necessario porque o backend (.run.app) e o frontend
+    # (ufreela.com.br) sao sites distintos. O allauth/OAuth precisa do
+    # sessionid no contexto cross-site.
+    SESSION_COOKIE_SAMESITE = "None"
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = True
-    CSRF_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SAMESITE = "None"
     X_FRAME_OPTIONS = "DENY"
