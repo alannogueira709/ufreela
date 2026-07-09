@@ -45,18 +45,18 @@ class ApiSecurityMiddleware:
     def __call__(self, request):
         if request.method in MUTATING_METHODS:
             path = request.path
-            is_production = not getattr(settings, "DEBUG", False)
 
-            # Em producao exige X-Requested-With para bloquear submits de
-            # formulario HTML. Em DEBUG/testes nao exigimos para facilitar
-            # desenvolvimento local e suite de testes.
+            # Soh exige X-Requested-With quando a requisicao eh identificavel
+            # como cross-site (Origin/Referer de dominio diferente do host).
+            # Requisicoes sem Origin (testes, server-to-server, same-site com
+            # SameSite=Lax) nao precisam desse header.
             if (
-                is_production
+                self._is_cross_site_request(request)
                 and not self._is_xhr_exempt(path)
                 and not self._is_xml_http_request(request)
             ):
                 logger.warning(
-                    "API Security: requisicao mutating sem X-Requested-With. Path=%s",
+                    "API Security: requisicao cross-site mutating sem X-Requested-With. Path=%s",
                     path,
                 )
                 return HttpResponseForbidden("Requisicao deve ser XMLHttpRequest.")
@@ -74,6 +74,14 @@ class ApiSecurityMiddleware:
 
     def _is_xml_http_request(self, request):
         return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    def _is_cross_site_request(self, request):
+        """Retorna True se Origin/Referer indicar requisicao cross-site."""
+        origin = request.headers.get("Origin") or request.headers.get("Referer")
+        if not origin:
+            return False
+        parsed = urlparse(origin)
+        return parsed.netloc != request.get_host()
 
     def _is_xhr_exempt(self, path: str) -> bool:
         return any(path.startswith(exempt) for exempt in XHR_EXEMPT_PATHS)
