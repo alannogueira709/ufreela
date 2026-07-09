@@ -92,8 +92,10 @@ class ApiSecurityMiddleware:
     def _is_trusted_origin(self, request):
         origin = request.headers.get("Origin") or request.headers.get("Referer")
         if not origin:
-            # Em desenvolvimento local (same-site) o browser pode omitir Origin.
-            return getattr(settings, "DEBUG", False)
+            # Requisicoes sem Origin/Referer nao podem ser validadas aqui.
+            # Em requisicoes cross-site reais o browser sempre envia Origin.
+            # Deixamos a protecao para o CsrfViewMiddleware + SameSite.
+            return True
 
         parsed = urlparse(origin)
         allowed = getattr(settings, "CORS_ALLOWED_ORIGINS", []) or []
