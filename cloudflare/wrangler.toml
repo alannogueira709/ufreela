@@ -4,6 +4,7 @@ compatibility_date = "2024-07-09"
 
 # Rota que o Worker vai interceptar. Com custom_domain = true, o Cloudflare
 # gerencia automaticamente o dominio api.ufreela.com.br para o Worker.
+# O pattern nao pode conter wildcard nem path quando custom_domain = true.
 routes = [
-  { pattern = "api.ufreela.com.br/*", custom_domain = true }
+  { pattern = "api.ufreela.com.br", custom_domain = true }
 ]
