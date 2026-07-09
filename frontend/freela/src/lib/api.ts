@@ -102,6 +102,10 @@ api.interceptors.request.use(async (config) => {
   const method = config.method?.toLowerCase();
   const isMutatingRequest = method ? MUTATING_METHODS.has(method) : false;
 
+  // Header que indica requisicao AJAX. O backend exige esse header em
+  // requisicoes mutating como protecao adicional contra CSRF.
+  setRequestHeader(config, "X-Requested-With", "XMLHttpRequest");
+
   if (isMutatingRequest) {
     const csrfToken = await ensureCsrfToken();
 
@@ -125,6 +129,8 @@ export const chatApi = axios.create({
 chatApi.interceptors.request.use(async (config) => {
   const method = config.method?.toLowerCase();
   const isMutatingRequest = method ? MUTATING_METHODS.has(method) : false;
+
+  setRequestHeader(config, "X-Requested-With", "XMLHttpRequest");
 
   if (isMutatingRequest) {
     const csrfToken = await ensureCsrfToken();

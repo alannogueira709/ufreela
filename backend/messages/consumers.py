@@ -7,6 +7,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
+from django.core.cache import cache
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -16,6 +17,10 @@ logger = logging.getLogger("django")
 
 # Limite de caracteres por mensagem para mitigar flood e payloads enormes.
 MAX_MESSAGE_LENGTH = 2000
+
+# Rate limiting: maximo de mensagens por usuario em uma janela de tempo.
+MAX_MESSAGES_PER_WINDOW = 60
+RATE_LIMIT_WINDOW_SECONDS = 60
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -73,6 +78,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return any(urlparse(allowed).netloc == parsed.netloc for allowed in allowed_origins)
 
     @database_sync_to_async
+    def _is_rate_limited(self):
+        """Limita o numero de mensagens por usuario para mitigar flood."""
+        if not self.user or getattr(self.user, "is_anonymous", True):
+            return True
+
+        key = f"chat_rate_limit:{self.user.id}"
+
+        # Tenta criar a chave. Se ja existir, incrementa e verifica o limite.
+        if cache.add(key, 1, timeout=RATE_LIMIT_WINDOW_SECONDS):
+            return False
+
+        try:
+            current = cache.incr(key)
+        except ValueError:
+            # Chave expirou durante a janela de corrida; reinicia.
+            cache.set(key, 1, timeout=RATE_LIMIT_WINDOW_SECONDS)
+            return False
+
+        return current > MAX_MESSAGES_PER_WINDOW
+
+    @database_sync_to_async
     def get_user_from_token(self, token_str):
         if not token_str:
             return AnonymousUser()
@@ -115,6 +141,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         logger.debug(f"DEBUG CHAT: Received message: {text_data}")
         try:
+            if await self._is_rate_limited():
+                logger.warning(
+                    f"CHAT: Rate limit excedido para o usuario {self.user.id}."
+                )
+                return
+
             data = json.loads(text_data)
             message_content = data.get("message", "").strip()
 
