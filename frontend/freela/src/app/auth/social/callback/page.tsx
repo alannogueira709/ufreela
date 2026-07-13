@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
@@ -25,6 +26,7 @@ function Loading() {
 function SocialCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const called = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -64,6 +66,11 @@ function SocialCallbackContent() {
       })
       .then((data) => {
         if (data.authenticated && data.redirect_url) {
+          // Invalida o cache de autenticacao para que o AuthContext
+          // refaca /api/auth/me/ com os novos cookies JWT na proxima
+          // pagina. Sem isso, o React Query retorna o valor stale
+          // (null) e a guarda de rota redireciona para /login.
+          queryClient.invalidateQueries({ queryKey: ["auth", "user"] });
           router.replace(data.redirect_url);
         } else {
           throw new Error("not_authenticated");
@@ -73,7 +80,7 @@ function SocialCallbackContent() {
         setErrorMessage("Erro ao verificar autenticação.");
         setTimeout(() => router.push("/login?error=social_auth_failed"), 2000);
       });
-  }, [searchParams, router]);
+  }, [searchParams, router, queryClient]);
 
   if (errorMessage) {
     return (

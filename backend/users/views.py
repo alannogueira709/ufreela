@@ -173,9 +173,14 @@ class SocialSessionView(APIView):
             )
 
         refresh = RefreshToken.for_user(request.user)
+        # Retorna apenas o caminho relativo (sem URL absoluta) para que o
+        # frontend faca navegacao client-side (router.replace) sem trocar de
+        # host -- trocar de host (ex: www -> sem www) causa full-page reload,
+        # perdendo o estado do React Query e os cookies JWT recem-setados.
+        redirect_path = "/register/complete" if not request.user.role else "/"
         response = Response({
             "authenticated": True,
-            "redirect_url": get_frontend_redirect_url(request.user),
+            "redirect_url": redirect_path,
         })
         attach_auth_cookies(response, str(refresh.access_token), str(refresh))
         return response

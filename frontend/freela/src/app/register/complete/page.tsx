@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
@@ -59,6 +59,33 @@ export default function RegisterCompletePage() {
     profileTitle: "",
     profileDescription: "",
   });
+
+  // Pre-popula o formulario com os dados que o provedor OAuth (Google,
+  // GitHub, LinkedIn) ja forneceu e o allauth salvou no User -- name,
+  // last_name e profile_img. Assim o usuario nao precisa redigitar o que
+  // o provedor ja entregou.
+  useEffect(() => {
+    let isMounted = true;
+
+    (async () => {
+      try {
+        const user = await getCurrentUser();
+        if (!isMounted) return;
+
+        setFormData((prev) => ({
+          ...prev,
+          firstName: prev.firstName || user.first_name || "",
+          lastName: prev.lastName || user.last_name || "",
+        }));
+      } catch {
+        // Ignora -- usuario pode preencher manualmente.
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const updateFormData = (newData: Partial<OnboardingFormData>) => {
     setFormData((prev) => ({ ...prev, ...newData }));
