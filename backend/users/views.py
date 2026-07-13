@@ -45,7 +45,7 @@ def attach_auth_cookies(response, access: str, refresh: str):
     response.set_cookie(
         key=settings.AUTH_COOKIE_ACCESS,
         value=access,
-        httponly=settings.AUTH_COOKIE_HTTP_ONLY,
+        httponly=settings.AUTH_COOKIE_HTTPONLY,
         secure=settings.AUTH_COOKIE_SECURE,
         samesite=settings.AUTH_COOKIE_SAMESITE,
         path="/",
@@ -54,7 +54,7 @@ def attach_auth_cookies(response, access: str, refresh: str):
     response.set_cookie(
         key=settings.AUTH_COOKIE_REFRESH,
         value=refresh,
-        httponly=settings.AUTH_COOKIE_HTTP_ONLY,
+        httponly=settings.AUTH_COOKIE_HTTPONLY,
         secure=settings.AUTH_COOKIE_SECURE,
         samesite=settings.AUTH_COOKIE_SAMESITE,
         path="/",
