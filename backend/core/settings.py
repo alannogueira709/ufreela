@@ -163,36 +163,6 @@ CSRF_TRUSTED_ORIGINS = env_list(
     ["http://localhost:3000", "https://ufreela.com.br", "https://www.ufreela.com.br"],
 )
 
-# Diagnostico: registra os valores lidos das env vars para depuracao do
-# fluxo OAuth em producao. Removido apos confirmar que tudo funciona.
-import logging as _logging
-_logger = _logging.getLogger("django")
-_logger.warning(
-    "[Settings] CSRF_TRUSTED_ORIGINS=%r CORS_ALLOWED_ORIGINS=%r FRONTEND_URL=%r "
-    "ALLOWED_HOSTS=%r AUTH_COOKIE_SECURE=%r AUTH_COOKIE_SAMESITE=%r "
-    "_share_site=%r _shared_domain=%r",
-    CSRF_TRUSTED_ORIGINS,
-    CORS_ALLOWED_ORIGINS,
-    FRONTEND_URL,
-    ALLOWED_HOSTS,
-    AUTH_COOKIE_SECURE,
-    AUTH_COOKIE_SAMESITE,
-    _share_site,
-    _shared_domain,
-)
-_logger.warning(
-    "[Settings] raw env CSRF_TRUSTED_ORIGINS=%r",
-    os.environ.get("CSRF_TRUSTED_ORIGINS"),
-)
-_logger.warning(
-    "[Settings] raw env CORS_ALLOWED_ORIGINS=%r",
-    os.environ.get("CORS_ALLOWED_ORIGINS"),
-)
-_logger.warning(
-    "[Settings] raw env FRONTEND_URL=%r",
-    os.environ.get("FRONTEND_URL"),
-)
-
 
 if os.environ.get("DATABASE_URL"):
     DATABASES = {
@@ -548,3 +518,39 @@ if not DEBUG:
     CSRF_COOKIE_HTTPONLY = False
     CSRF_COOKIE_SAMESITE = "Lax" if _share_site else "None"
     X_FRAME_OPTIONS = "DENY"
+
+
+# ── Diagnostico OAuth (remover apos confirmar funcionamento) ───
+import logging as _logging
+
+_diag_logger = _logging.getLogger("django")
+_diag_logger.warning(
+    "[Settings] CSRF_TRUSTED_ORIGINS=%r CORS_ALLOWED_ORIGINS=%r FRONTEND_URL=%r "
+    "ALLOWED_HOSTS=%r AUTH_COOKIE_SECURE=%r AUTH_COOKIE_SAMESITE=%r "
+    "_share_site=%r _shared_domain=%r DEBUG=%r",
+    CSRF_TRUSTED_ORIGINS,
+    CORS_ALLOWED_ORIGINS,
+    FRONTEND_URL,
+    ALLOWED_HOSTS,
+    AUTH_COOKIE_SECURE,
+    AUTH_COOKIE_SAMESITE,
+    _share_site,
+    _shared_domain,
+    DEBUG,
+)
+_diag_logger.warning(
+    "[Settings] raw env CSRF_TRUSTED_ORIGINS=%r",
+    os.environ.get("CSRF_TRUSTED_ORIGINS"),
+)
+_diag_logger.warning(
+    "[Settings] raw env CORS_ALLOWED_ORIGINS=%r",
+    os.environ.get("CORS_ALLOWED_ORIGINS"),
+)
+_diag_logger.warning(
+    "[Settings] raw env FRONTEND_URL=%r",
+    os.environ.get("FRONTEND_URL"),
+)
+_diag_logger.warning(
+    "[Settings] raw env ALLOWED_HOSTS=%r",
+    os.environ.get("ALLOWED_HOSTS"),
+)
