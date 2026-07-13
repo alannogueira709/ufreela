@@ -10,7 +10,6 @@ import {
   Building2,
   CheckCircle2,
   Clock3,
-  Star,
   User,
 } from "lucide-react";
 
@@ -29,6 +28,7 @@ import {
   toggleSavedOpportunity,
 } from "@/lib/job-service";
 import { createProposal } from "@/lib/proposal-service";
+import { useFormDraft } from "@/lib/hooks/useFormDraft";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserRole } from "@/types/nav";
@@ -92,6 +92,25 @@ export function JobDetailsPage() {
   const [relatedJobs, setRelatedJobs] = useState<Opportunity[]>([]);
   const [proposalValue, setProposalValue] = useState("");
   const [coverLetter, setCoverLetter] = useState("");
+  const proposalDraftKey = opportunityId
+    ? `ufreela:proposal-${opportunityId}`
+    : "ufreela:proposal-draft";
+  const { data: proposalDraft, setData: setProposalDraft, clear: clearProposalDraft } =
+    useFormDraft<{ proposalValue: string; coverLetter: string }>({
+      key: proposalDraftKey,
+      initial: { proposalValue: "", coverLetter: "" },
+    });
+
+  // Restaura draft do localStorage
+  useEffect(() => {
+    setProposalValue(proposalDraft.proposalValue || "");
+    setCoverLetter(proposalDraft.coverLetter || "");
+  }, [proposalDraft.proposalValue, proposalDraft.coverLetter]);
+
+  // Persiste mudancas
+  useEffect(() => {
+    setProposalDraft({ proposalValue, coverLetter });
+  }, [proposalValue, coverLetter, setProposalDraft]);
   const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
   const [proposalError, setProposalError] = useState("");
   const [proposalSuccess, setProposalSuccess] = useState("");
@@ -223,6 +242,7 @@ export function JobDetailsPage() {
       setProposalSuccess("Proposta enviada com sucesso.");
       setProposalValue("");
       setCoverLetter("");
+      clearProposalDraft();
     } catch (submitError) {
       setProposalError(
         getApiErrorMessage(

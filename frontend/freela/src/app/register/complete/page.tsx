@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import ChooseRole, { type Role } from "./choose_role";
 import DataForm from "./data_form";
 import UploadProfile from "./upload_profile";
+import { useOnboardingDraft } from "./useOnboardingDraft";
 import type { OnboardingFormData } from "./types";
 import {
   completeRegistration,
@@ -47,23 +48,32 @@ export default function RegisterCompletePage() {
   const [direction, setDirection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [formData, setFormData] = useState<OnboardingFormData>({
-    role: "",
-    firstName: "",
-    lastName: "",
-    companyName: "",
-    cnpj: "",
-    cpf: "",
-    primaryArea: "Desenvolvimento",
-    profileImage: null,
-    profileTitle: "",
-    profileDescription: "",
-  });
+
+  const { data: formData, setData: setFormData, clear: clearDraft } =
+    useOnboardingDraft<OnboardingFormData>({
+      role: "",
+      firstName: "",
+      lastName: "",
+      companyName: "",
+      cnpj: "",
+      cpf: "",
+      primaryArea: "Desenvolvimento",
+      profileImage: null,
+      profileTitle: "",
+      profileDescription: "",
+    });
+
+  // Mantem `selected` sincronizado com o role persistido no draft.
+  useEffect(() => {
+    if (formData.role) {
+      setSelected(formData.role as Role);
+    }
+  }, [formData.role]);
 
   // Pre-popula o formulario com os dados que o provedor OAuth (Google,
   // GitHub, LinkedIn) ja forneceu e o allauth salvou no User -- name,
-  // last_name e profile_img. Assim o usuario nao precisa redigitar o que
-  // o provedor ja entregou.
+  // last_name. Soh preenche se o draft estiver vazio para nao sobrescrever
+  // o que o usuario ja digitou.
   useEffect(() => {
     let isMounted = true;
 
@@ -85,7 +95,7 @@ export default function RegisterCompletePage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [setFormData]);
 
   const updateFormData = (newData: Partial<OnboardingFormData>) => {
     setFormData((prev) => ({ ...prev, ...newData }));
@@ -95,7 +105,7 @@ export default function RegisterCompletePage() {
 
   const handleNextStep = () => {
     if (!selected) return;
-
+    updateFormData({ role: selected });
     if (currentStep < steps.length) {
       setDirection(1);
       setCurrentStep((prev) => prev + 1);
@@ -137,6 +147,7 @@ export default function RegisterCompletePage() {
 
       const currentUser = await getCurrentUser();
       queryClient.setQueryData(["auth", "user"], currentUser);
+      clearDraft();
 
       if (selectedRole === "freelancer") {
         router.push("/welcome/freelancer");

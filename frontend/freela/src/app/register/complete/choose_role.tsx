@@ -78,8 +78,8 @@ export default function ChooseRole({
           Bem vindo ao uFreela!
         </h1>
         <p className="mt-3 text-sm leading-7 text-slate-500 sm:text-base">
-          Queremos conhecer mais de voce para criar uma experiencia
-          personalizada. Escolha a opcao que melhor descreve o seu perfil.
+          Queremos conhecer mais de você para criar uma experiência
+          personalizada. Escolha a opção que melhor descreve o seu perfil.
         </p>
       </motion.div>
 

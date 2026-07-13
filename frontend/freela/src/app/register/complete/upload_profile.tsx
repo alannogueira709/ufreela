@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, ChevronLeft, ImagePlus } from "lucide-react";
+import { useMemo } from "react";
+import { Check, ChevronLeft, ImagePlus, X } from "lucide-react";
 import { motion, type Variants } from "motion/react";
 
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,14 @@ export default function UploadProfile({
   isSubmitting,
   error,
 }: UploadProfileProps) {
+  // Cria/limpa a object URL via useMemo. A URL e revogada quando o
+  // profileImage muda, liberando a memoria do browser.
+  const preview = useMemo(() => {
+    if (!data.profileImage) return null;
+    const url = URL.createObjectURL(data.profileImage);
+    return url;
+  }, [data.profileImage]);
+
   return (
     <motion.div
       variants={containerVariants}
@@ -87,19 +96,50 @@ export default function UploadProfile({
             >
               Foto de Perfil
             </FieldLabel>
-            <label
-              htmlFor="profile-image"
-              className="flex h-40 cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 text-slate-400 transition-colors hover:border-blue-300 hover:bg-blue-50/50"
-            >
-              <ImagePlus className="size-8 text-slate-400" />
-              <span className="text-base">Arraste sua foto aqui</span>
-              <span className="text-xs text-slate-500">
-                ou clique para selecionar um arquivo
-              </span>
-            </label>
+            <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 transition-colors hover:border-blue-300 hover:bg-blue-50/50">
+              {preview ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={preview}
+                    alt="Pré-visualização da foto de perfil"
+                    className="h-full w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateData({ profileImage: null })}
+                    className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                    aria-label="Remover foto"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </>
+              ) : (
+                <label
+                  htmlFor="profile-image"
+                  className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-3 px-6 text-slate-400"
+                >
+                  <ImagePlus className="size-8 text-slate-400" />
+                  <span className="text-base">Arraste sua foto aqui</span>
+                  <span className="text-xs text-slate-500">
+                    ou clique para selecionar um arquivo
+                  </span>
+                </label>
+              )}
+            </div>
+            {preview && (
+              <button
+                type="button"
+                onClick={() => updateData({ profileImage: null })}
+                className="text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
+              >
+                Trocar foto
+              </button>
+            )}
             <Input
               id="profile-image"
               type="file"
+              accept="image/*"
               className="sr-only"
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {

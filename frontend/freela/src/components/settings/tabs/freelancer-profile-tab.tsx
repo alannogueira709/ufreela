@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFormDraft } from "@/lib/hooks/useFormDraft";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,14 +21,18 @@ interface FreelancerProfile {
   professional_level: string;
   description: string;
   skills: Array<{ name: string; level: string }>;
+  [key: string]: unknown;
 }
 
 export function FreelancerProfileTab({ onChange }: Props) {
-  const [profile, setProfile] = useState<FreelancerProfile>({
-    hourly_rate: 0,
-    professional_level: "mid",
-    description: "",
-    skills: [],
+  const { data: profile, setData: setProfile, clear: clearDraft } = useFormDraft<FreelancerProfile>({
+    key: "ufreela:freelancer-profile-draft",
+    initial: {
+      hourly_rate: 0,
+      professional_level: "mid",
+      description: "",
+      skills: [],
+    },
   });
   const [newSkill, setNewSkill] = useState("");
   const [saving, setSaving] = useState(false);
@@ -50,13 +55,14 @@ export function FreelancerProfileTab({ onChange }: Props) {
       }
     };
     load();
-  }, []);
+  }, [setProfile]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await api.patch("/auth/me/", profile);
       toast.success("Perfil atualizado!");
+      clearDraft();
       onChange();
     } catch {
       toast.error("Erro ao salvar");

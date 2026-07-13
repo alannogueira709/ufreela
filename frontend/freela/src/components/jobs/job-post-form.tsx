@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bookmark, CalendarIcon, Info, Minus, Plus } from "lucide-react";
+import { toast as sonnerToast } from "sonner";
+
+const toast = sonnerToast as unknown as (message: string, options?: { description?: string }) => void;
 
 import Loading from "@/components/shared/Loading";
 import Footer from "@/components/shared/Footer";
@@ -14,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getApiErrorMessage } from "@/lib/api-errors";
+import { useFormDraft } from "@/lib/hooks/useFormDraft";
 import {
   createOpportunity,
   getOpportunityCategories,
@@ -32,6 +36,7 @@ const initialForm = {
   budget_min: "5000",
   budget_max: "12500",
   deadline: undefined as Date | undefined,
+  selectedSkills: [] as number[],
 };
 
 function mapRole(role: UserRole | undefined) {
@@ -53,15 +58,51 @@ function formatRange(min: string, max: string) {
 export function JobPostForm() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const [formData, setFormData] = useState(initialForm);
+  const { data: formData, setData: setFormData, clear: clearDraft, restored } =
+    useFormDraft({
+      key: "ufreela:job-post-draft",
+      initial: initialForm,
+      omit: ["deadline"], // Date nao e diretamente serializavel
+    });
   const [categories, setCategories] = useState<OpportunityCategory[]>([]);
   const [skills, setSkills] = useState<OpportunitySkill[]>([]);
-  const [selectedSkills, setSelectedSkills] = useState<number[]>([]);
   const [isLoadingMeta, setIsLoadingMeta] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [activeFormats, setActiveFormats] = useState<Set<"bold" | "italic" | "underline">>(new Set());
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+
+  // Restaura deadline do draft (string ISO -> Date)
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      const raw = localStorage.getItem("ufreela:job-post-deadline");
+      if (!raw) return;
+      const dl = JSON.parse(raw);
+      if (typeof dl === "string" && dl) {
+        setFormData((prev) => ({ ...prev, deadline: new Date(dl) }));
+      }
+    } catch {
+      // ignora
+    }
+  }, [restored, setFormData]);
+
+  // Persiste deadline manualmente (Date nao e serializavel pelo hook)
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      if (formData.deadline) {
+        localStorage.setItem(
+          "ufreela:job-post-deadline",
+          JSON.stringify(formData.deadline.toISOString()),
+        );
+      } else {
+        localStorage.removeItem("ufreela:job-post-deadline");
+      }
+    } catch {
+      // ignora
+    }
+  }, [formData.deadline, restored]);
 
   const FORMAT_MARKERS = {
     bold: "**",
@@ -154,9 +195,12 @@ export function JobPostForm() {
       try {
         const skillsData = await getOpportunitySkills(formData.category_id || undefined);
         setSkills(skillsData);
-        setSelectedSkills((current) =>
-          current.filter((skillId) => skillsData.some((skill) => skill.skill_id === skillId)),
-        );
+        setFormData((current) => ({
+          ...current,
+          selectedSkills: current.selectedSkills.filter((skillId) =>
+            skillsData.some((skill) => skill.skill_id === skillId),
+          ),
+        }));
       } catch (loadError) {
         setError(
           getApiErrorMessage(loadError, "Não foi possível atualizar as skills."),
@@ -165,7 +209,7 @@ export function JobPostForm() {
     };
 
     void loadSkills();
-  }, [formData.category_id]);
+  }, [formData.category_id, setFormData]);
 
   const activeRole = mapRole(user?.role);
   const canPublish = user?.role === "publisher";
@@ -184,13 +228,18 @@ export function JobPostForm() {
         title: formData.title,
         description: formData.description,
         category_id: formData.category_id ? Number(formData.category_id) : undefined,
-        skill_ids: selectedSkills,
+        skill_ids: formData.selectedSkills,
         xp_level: formData.xp_level || undefined,
         work_modality: formData.work_modality || undefined,
         budget_min: formData.budget_min ? Number(formData.budget_min) : undefined,
         budget_max: formData.budget_max ? Number(formData.budget_max) : undefined,
         deadline: formData.deadline ? formData.deadline.toISOString().slice(0, 10) : undefined,
       });
+
+      clearDraft();
+      try {
+        localStorage.removeItem("ufreela:job-post-deadline");
+      } catch {}
 
       router.push(`/jobs/${created.opportunity_id}`);
       router.refresh();
@@ -312,17 +361,18 @@ export function JobPostForm() {
                     <div className="min-h-14 rounded-2xl bg-slate-100 px-3 py-3">
                       <div className="flex flex-wrap gap-2">
                         {skills.slice(0, 12).map((skill) => {
-                          const isSelected = selectedSkills.includes(skill.skill_id);
+                          const isSelected = formData.selectedSkills.includes(skill.skill_id);
                           return (
                             <button
                               key={skill.skill_id}
                               type="button"
                               onClick={() =>
-                                setSelectedSkills((current) =>
-                                  isSelected
-                                    ? current.filter((item) => item !== skill.skill_id)
-                                    : [...current, skill.skill_id],
-                                )
+                                setFormData((current) => ({
+                                ...current,
+                                selectedSkills: isSelected
+                                  ? current.selectedSkills.filter((item) => item !== skill.skill_id)
+                                  : [...current.selectedSkills, skill.skill_id],
+                              }))
                               }
                               className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                                 isSelected
@@ -525,13 +575,14 @@ export function JobPostForm() {
                         max={50000}
                         step={10}
                         value={[Number(formData.budget_min), Number(formData.budget_max)]}
-                        onValueChange={(values) =>
+                        onValueChange={(values) => {
+                          const [min, max] = values as [number, number];
                           setFormData((current) => ({
                             ...current,
-                            budget_min: String((values as number[])[0]),
-                            budget_max: String((values as number[])[1]),
-                          }))
-                        }
+                            budget_min: String(min),
+                            budget_max: String(max),
+                          }));
+                        }}
                         className="w-full"
                       />
                     </div>
@@ -546,10 +597,29 @@ export function JobPostForm() {
                   <Button
                     type="button"
                     variant="outline"
+                    onClick={() => {
+                      // Forca o save do autosave + deadline manual
+                      try {
+                        const serializable = { ...formData, deadline: undefined };
+                        localStorage.setItem(
+                          "ufreela:job-post-draft",
+                          JSON.stringify({ data: serializable, ts: Date.now() }),
+                        );
+                        if (formData.deadline) {
+                          localStorage.setItem(
+                            "ufreela:job-post-deadline",
+                            JSON.stringify(formData.deadline.toISOString()),
+                          );
+                        }
+} catch {}
+                      toast("Rascunho salvo", {
+                        description: "Os dados foram salvos no navegador. Você pode continuar depois.",
+                      });
+                    }}
                     className="h-12 rounded-full border-transparent bg-slate-100 px-7 text-sm font-semibold text-slate-500"
                   >
-                  <Bookmark className="size-4" />
-                    Salvar
+                    <Bookmark className="size-4" />
+                    Salvar Rascunho
                   </Button>
                   <Button
                     type="submit"

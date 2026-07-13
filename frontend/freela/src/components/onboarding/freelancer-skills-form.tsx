@@ -4,13 +4,13 @@ import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowRight, Plus, Trash2 } from "lucide-react";
-import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import { ArrowRight, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo } from "react";
 
 import { api } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/api-errors";
+import { useFormDraft } from "@/lib/hooks/useFormDraft";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -128,12 +128,21 @@ export function FreelancerSkillsForm() {
     },
   });
 
+  // Rascunho salvo no localStorage (sobrevive a reload)
+  const { data: draft, clear: clearDraft } = useFormDraft<SkillsFormValues>({
+    key: "ufreela:skills-draft",
+    initial: { skills: [EMPTY_SKILL_ROW] },
+  });
+
   const form = useForm<SkillsFormValues>({
     resolver: zodResolver(skillsFormSchema),
-    defaultValues: {
-      skills: [EMPTY_SKILL_ROW],
-    },
+    defaultValues: draft,
   });
+
+  // Sincroniza o form com o rascunho
+  useEffect(() => {
+    form.reset(draft);
+  }, [draft, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -167,19 +176,21 @@ export function FreelancerSkillsForm() {
       await api.post("/freelancers/me/skills/", data);
     },
     onSuccess: () => {
+      clearDraft();
       if (user?.id) {
         router.push(`/profile/freelancer/${user.id}`);
       }
     },
   });
 
-  const submitErrorMessage = useMemo(() => {
-    if (!saveSkillsMutation.error || !axios.isAxiosError(saveSkillsMutation.error)) {
+const submitErrorMessage = useMemo(() => {
+    if (!saveSkillsMutation.error) {
       return null;
     }
 
-    if (saveSkillsMutation.error.response?.status === 403) {
-      return "Seu usuario não foi reconhecido pelo backend como freelancer autenticado.";
+    const err = saveSkillsMutation.error as { response?: { status?: number } };
+    if (err.response?.status === 403) {
+      return "Seu usuário não foi reconhecido pelo backend como freelancer autenticado.";
     }
 
     return getApiErrorMessage(

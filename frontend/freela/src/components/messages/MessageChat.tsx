@@ -6,6 +6,7 @@ import { chatService } from '@/lib/api';
 import { Message, User } from '@/types/chat';
 import { Phone, Video, Info, Plus, Smile, Send, Lock, CheckCheck } from 'lucide-react';
 import { getAvatarUrl } from '@/lib/avatar';
+import { useFormDraft } from '@/lib/hooks/useFormDraft';
 
 interface ChatWindowProps {
   conversationId: number;
@@ -19,9 +20,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   otherUser
 }) => {
   const { messages, isConnected, sendMessage, setMessages } = useChatSocket(conversationId);
-  const [inputValue, setInputValue] = useState('');
+  const { data: draft, setData: setDraft } = useFormDraft<{ inputValue: string }>({
+    key: `ufreela:chat-${conversationId}`,
+    initial: { inputValue: "" },
+    storage: "sessionStorage",
+  });
+  const [inputValue, setInputValue] = useState(draft.inputValue || '');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Persiste o inputValue no rascunho
+  useEffect(() => {
+    setDraft({ inputValue });
+  }, [inputValue, setDraft]);
   
   const [visibleCount, setVisibleCount] = useState(20);
   const prevMessagesLength = useRef(0);

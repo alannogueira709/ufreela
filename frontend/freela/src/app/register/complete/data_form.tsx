@@ -101,7 +101,7 @@ export default function DataForm({
           {selected === "publisher" ? "Dados da Empresa" : "Dados Pessoais"}
         </h2>
         <p className="mt-2 text-sm text-slate-500">
-          Preencha as informacoes abaixo para continuar.
+          Preencha as informações abaixo para continuar.
         </p>
       </motion.div>
 
@@ -205,12 +205,18 @@ export default function DataForm({
                 value={data.primaryArea || "Desenvolvimento"}
                 onChange={(e) => updateData({ primaryArea: e.target.value })}
               >
-                <option>Desenvolvimento</option>
+                <option>Desenvolvimento e Inteligência Artificial</option>
+                <option>TI e Infraestrutura</option>
                 <option>Design</option>
                 <option>Marketing</option>
+                <option>Escrita</option>
+                <option>Edição</option>
+                <option>Administração</option>
+                <option>Finanças</option>
+                <option>Jurídico</option>
               </select>
               <FieldDescription className="text-xs text-slate-500">
-                Escolha a area principal para personalizar suas oportunidades.
+                Escolha a área principal para personalizar suas oportunidades.
               </FieldDescription>
             </Field>
           )}
@@ -233,7 +239,7 @@ export default function DataForm({
           className="rounded-full bg-blue-600 px-8 hover:bg-blue-700"
           onClick={handleNext}
         >
-          Proximo
+          Próximo
           <ArrowRight className="size-4" />
         </Button>
       </motion.div>
