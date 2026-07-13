@@ -495,6 +495,13 @@ if not DEBUG:
     # -> HTTPS redirects instead of Django to avoid redirect loops.
     SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", False)
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # O Cloudflare Worker proxy encaminha o Host publico (api.ufreela.com.br)
+    # via X-Forwarded-Host, mas o Cloud Run enxerga o proprio hostname
+    # interno (*.run.app) no cabecalho Host. Sem essa flag, o
+    # request.get_host()/build_absolute_uri() retornam a URL interna do
+    # Cloud Run, quebrando redirect_uri do OAuth e URLs absolutas.
+    # Seguro: Django valida X-Forwarded-Host contra ALLOWED_HOSTS.
+    USE_X_FORWARDED_HOST = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -518,39 +525,3 @@ if not DEBUG:
     CSRF_COOKIE_HTTPONLY = False
     CSRF_COOKIE_SAMESITE = "Lax" if _share_site else "None"
     X_FRAME_OPTIONS = "DENY"
-
-
-# ── Diagnostico OAuth (remover apos confirmar funcionamento) ───
-import logging as _logging
-
-_diag_logger = _logging.getLogger("django")
-_diag_logger.warning(
-    "[Settings] CSRF_TRUSTED_ORIGINS=%r CORS_ALLOWED_ORIGINS=%r FRONTEND_URL=%r "
-    "ALLOWED_HOSTS=%r AUTH_COOKIE_SECURE=%r AUTH_COOKIE_SAMESITE=%r "
-    "_share_site=%r _shared_domain=%r DEBUG=%r",
-    CSRF_TRUSTED_ORIGINS,
-    CORS_ALLOWED_ORIGINS,
-    FRONTEND_URL,
-    ALLOWED_HOSTS,
-    AUTH_COOKIE_SECURE,
-    AUTH_COOKIE_SAMESITE,
-    _share_site,
-    _shared_domain,
-    DEBUG,
-)
-_diag_logger.warning(
-    "[Settings] raw env CSRF_TRUSTED_ORIGINS=%r",
-    os.environ.get("CSRF_TRUSTED_ORIGINS"),
-)
-_diag_logger.warning(
-    "[Settings] raw env CORS_ALLOWED_ORIGINS=%r",
-    os.environ.get("CORS_ALLOWED_ORIGINS"),
-)
-_diag_logger.warning(
-    "[Settings] raw env FRONTEND_URL=%r",
-    os.environ.get("FRONTEND_URL"),
-)
-_diag_logger.warning(
-    "[Settings] raw env ALLOWED_HOSTS=%r",
-    os.environ.get("ALLOWED_HOSTS"),
-)
