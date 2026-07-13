@@ -29,13 +29,36 @@ export default {
 
     try {
       const response = await fetch(targetUrl, init);
-      const responseHeaders = new Headers(response.headers);
 
-      return new Response(response.body, {
+      // Copia todos os headers EXCETO Set-Cookie, que precisa de tratamento
+      // especial. O construtor new Headers() combina multiplos Set-Cookie
+      // em um unico header separado por virgula, que o browser interpreta como
+      // apenas um cookie invalido -- isso descarta os cookies JWT e de sessao
+      // que o Django envia no /api/auth/social/session/, quebrando o fluxo
+      // OAuth.
+      const responseHeaders = new Headers();
+      response.headers.forEach((value, key) => {
+        if (key.toLowerCase() !== "set-cookie") {
+          responseHeaders.set(key, value);
+        }
+      });
+
+      const newResponse = new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
         headers: responseHeaders,
       });
+
+      // getSetCookie() e a API da Fetch para ler todos os Set-Cookie como
+      // array, preservando cada cookie individualmente. Append no headers da
+      // Response (mutavel em Cloudflare Workers) garante que o browser veja
+      // todos os cookies separados e os armazene corretamente.
+      const setCookies = response.headers.getSetCookie?.() ?? [];
+      for (const cookie of setCookies) {
+        newResponse.headers.append("Set-Cookie", cookie);
+      }
+
+      return newResponse;
     } catch (err) {
       console.error("Proxy error:", err);
       return new Response(`Proxy error: ${err.message}`, { status: 502 });
