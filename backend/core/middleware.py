@@ -1,4 +1,5 @@
 import logging
+import re
 from urllib.parse import urlparse
 
 from django.conf import settings
@@ -98,8 +99,60 @@ class ApiSecurityMiddleware:
             return True
 
         parsed = urlparse(origin)
-        allowed = getattr(settings, "CORS_ALLOWED_ORIGINS", []) or []
-        return any(
-            urlparse(allowed_origin).netloc == parsed.netloc
-            for allowed_origin in allowed
-        )
+        # A string normalizada "scheme://netloc" (sem path) eh usada para
+        # comparacao exata contra as origens confiaveis.
+        normalized_origin = f"{parsed.scheme}://{parsed.netloc}"
+
+        # 1) CORS_ALLOWED_ORIGINS: comparacao exata de origem completa
+        #    (scheme + host), e fallback de netloc para retrocompatibilidade
+        #    com configuracoes legadas (apenas hostname na lista).
+        for allowed_origin in getattr(settings, "CORS_ALLOWED_ORIGINS", []) or []:
+            allowed_parsed = urlparse(allowed_origin)
+            if not allowed_parsed.netloc:
+                continue
+            if (
+                allowed_parsed.scheme == parsed.scheme
+                and allowed_parsed.netloc == parsed.netloc
+            ):
+                return True
+            # Fallback legado: comparar apenas o netloc.
+            if allowed_parsed.netloc == parsed.netloc:
+                return True
+
+        # 2) CORS_ALLOWED_ORIGIN_REGEXES: casamento por expressao regular
+        #    contra a origem normalizada, alinhado ao comportamento do
+        #    django-cors-headers.
+        for pattern in getattr(settings, "CORS_ALLOWED_ORIGIN_REGEXES", []) or []:
+            try:
+                if re.search(pattern, normalized_origin):
+                    return True
+            except re.error:
+                logger.warning(
+                    "API Security: regex invalido em CORS_ALLOWED_ORIGIN_REGEXES: %s",
+                    pattern,
+                )
+
+        # 3) CSRF_TRUSTED_ORIGINS: lista canonica do Django para validar
+        #    Origin em requisicoes unsafe cross-origin. Eh exatamente o
+        #    conjunto que o CsrfViewMiddleware usaria logo a seguir, entao
+        #    confiar nele aqui mantem o middleware consistente com o Django
+        #    e evita bloqueios por divergencia de configuracao.
+        for trusted in getattr(settings, "CSRF_TRUSTED_ORIGINS", []) or []:
+            trusted_parsed = urlparse(trusted)
+            trusted_netloc = trusted_parsed.netloc or trusted
+            if trusted_parsed.scheme == parsed.scheme and (
+                trusted_netloc == parsed.netloc
+                # Permite entradas wildcard como https://*.ufreela.com.br
+                or self._wildcard_match(trusted_netloc, parsed.netloc)
+            ):
+                return True
+
+        return False
+
+    @staticmethod
+    def _wildcard_match(pattern: str, value: str) -> bool:
+        """Casa um host com wildcard do tipo '*.example.com' contra um host."""
+        if not pattern.startswith("*."):
+            return False
+        suffix = pattern[1:]  # '.example.com'
+        return value.endswith(suffix) and len(value) > len(suffix)
