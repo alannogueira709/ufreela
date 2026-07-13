@@ -373,6 +373,11 @@ AUTH_COOKIE_ACCESS = "access_token"
 AUTH_COOKIE_REFRESH = "refresh_token"
 AUTH_COOKIE_SECURE = env_bool("AUTH_COOKIE_SECURE", not DEBUG)
 AUTH_COOKIE_HTTPONLY = True
+# Domain compartilhado com o frontend (ex: .ufreela.com.br) para que os
+# cookies JWT sejam visiveis no middleware do Next.js (proxy.ts) rodando em
+# www.ufreela.com.br. Sem isso, os cookies ficam restritos a
+# api.ufreela.com.br e o middleware redireciona para /login.
+AUTH_COOKIE_DOMAIN = f".{_shared_domain}" if _shared_domain else None
 # SameSite depende de frontend e backend compartilharem o mesmo dominio
 # registrado (ex: www.ufreela.com.br e api.ufreela.com.br -> ufreela.com.br).
 # Mesmo site -> Lax; sites distintos -> None (requer Secure=True).

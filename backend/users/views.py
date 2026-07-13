@@ -48,6 +48,7 @@ def attach_auth_cookies(response, access: str, refresh: str):
         httponly=settings.AUTH_COOKIE_HTTPONLY,
         secure=settings.AUTH_COOKIE_SECURE,
         samesite=settings.AUTH_COOKIE_SAMESITE,
+        domain=settings.AUTH_COOKIE_DOMAIN,
         path="/",
         max_age=int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
     )
@@ -57,6 +58,7 @@ def attach_auth_cookies(response, access: str, refresh: str):
         httponly=settings.AUTH_COOKIE_HTTPONLY,
         secure=settings.AUTH_COOKIE_SECURE,
         samesite=settings.AUTH_COOKIE_SAMESITE,
+        domain=settings.AUTH_COOKIE_DOMAIN,
         path="/",
         max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
     )
@@ -68,11 +70,13 @@ def clear_auth_cookies(response: Response):
         settings.AUTH_COOKIE_ACCESS,
         path="/",
         samesite=settings.AUTH_COOKIE_SAMESITE,
+        domain=settings.AUTH_COOKIE_DOMAIN,
     )
     response.delete_cookie(
         settings.AUTH_COOKIE_REFRESH,
         path="/",
         samesite=settings.AUTH_COOKIE_SAMESITE,
+        domain=settings.AUTH_COOKIE_DOMAIN,
     )
     response.delete_cookie("sessionid", path="/")
     response.delete_cookie("csrftoken", path="/")
