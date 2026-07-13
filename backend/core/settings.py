@@ -249,6 +249,16 @@ ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = os.environ.get("ACCOUNT_EMAIL_VERIFICATION", "mandatory")
+# Logins sociais (Google, GitHub, LinkedIn) pulam verificacao de email porque
+# o provedor OAuth ja garante que o email e verificado. Sem isso,
+# ACCOUNT_EMAIL_VERIFICATION=mandatory faz o estagio de verificacao bloquear
+# o adapter.login() -- o usuario nunca chega autenticado, e o frontend recebe
+# 401 ao consultar /api/auth/social/session/. O setting do allauth
+# (SOCIALACCOUNT_EMAIL_VERIFICATION) tem default None, que faz fallback para
+# ACCOUNT_EMAIL_VERIFICATION, por isso precisamos definir explicitamente.
+SOCIALACCOUNT_EMAIL_VERIFICATION = os.environ.get(
+    "SOCIALACCOUNT_EMAIL_VERIFICATION", "none"
+)
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_QUERY_EMAIL = True
 # When a social provider returns a verified email that already belongs to a
