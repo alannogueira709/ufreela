@@ -506,6 +506,15 @@ if not DEBUG:
     # SameSite=None quando sao sites distintos (cross-site).
     SESSION_COOKIE_SAMESITE = "Lax" if _share_site else "None"
     CSRF_COOKIE_SECURE = True
-    CSRF_COOKIE_HTTPONLY = True
+    # O cookie csrftoken precisa ser legivel pelo JavaScript do frontend
+    # (SPA) para que ele possa ser enviado no cabecalho X-CSRFToken e no
+    # campo csrfmiddlewaretoken do formulario de redirect do allauth
+    # headless. HttpOnly=True quebra o fluxo OAuth e o axiosInterceptor.
+    # A protecao contra CSRF continua garantida por:
+    #   - CSRF_COOKIE_SAMESITE=Lax (ou None+Secure quando cross-site);
+    #   - CSRF_COOKIE_SECURE=True;
+    #   - CSRF_TRUSTED_ORIGINS (Django valida Origin/Referer);
+    #   - core.middleware.ApiSecurityMiddleware (validacao extra de Origin).
+    CSRF_COOKIE_HTTPONLY = False
     CSRF_COOKIE_SAMESITE = "Lax" if _share_site else "None"
     X_FRAME_OPTIONS = "DENY"
