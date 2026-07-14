@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { Check, ChevronLeft, ImagePlus, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Cropper, { type Area, type Point } from "react-easy-crop";
+import { Check, ChevronLeft, ImagePlus, Move, ZoomIn } from "lucide-react";
 import { motion, type Variants } from "motion/react";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,19 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getCroppedImg } from "@/lib/cropImage";
+
 import type { OnboardingFormData } from "./types";
+
+type UploadProfileProps = {
+  data: OnboardingFormData;
+  updateData: (data: Partial<OnboardingFormData>) => void;
+  onPrev: () => void;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+  error?: string;
+};
 
 const containerVariants: Variants = {
   hidden: {},
@@ -25,38 +38,137 @@ const containerVariants: Variants = {
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 18 },
+  hidden: {
+    opacity: 0,
+    y: 18,
+  },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.28, ease: "easeOut" as const },
+    transition: {
+      duration: 0.28,
+      ease: "easeOut",
+    },
   },
 };
 
-type UploadProfileProps = {
-  data: OnboardingFormData;
-  updateData: (data: Partial<OnboardingFormData>) => void;
-  onPrev: () => void;
-  onSubmit: () => void;
-  isSubmitting: boolean;
-  error?: string;
-};
-
 export default function UploadProfile({
-  onPrev,
   data,
   updateData,
+  onPrev,
   onSubmit,
   isSubmitting,
   error,
 }: UploadProfileProps) {
-  // Cria/limpa a object URL via useMemo. A URL e revogada quando o
-  // profileImage muda, liberando a memoria do browser.
-  const preview = useMemo(() => {
-    if (!data.profileImage) return null;
+  const [preview, setPreview] = useState<string | null>(null);
+  const [crop, setCrop] = useState<Point>({
+    x: 0,
+    y: 0,
+  });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area>();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [shouldSubmitAfterCrop, setShouldSubmitAfterCrop] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const generatedImageRef = useRef<File | null>(null);
+  const [previewCropUrl, setPreviewCropUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!data.profileImage) {
+      setPreview(null);
+      setPreviewCropUrl(null);
+      return;
+    }
+
     const url = URL.createObjectURL(data.profileImage);
-    return url;
+    setPreview(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
   }, [data.profileImage]);
+
+  const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
+    setCroppedAreaPixels(croppedPixels);
+  }, []);
+
+  useEffect(() => {
+    if (!preview || !croppedAreaPixels || !canvasRef.current) {
+      return;
+    }
+
+    const image = new Image();
+    image.src = preview;
+
+    image.onload = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      canvas.width = 200;
+      canvas.height = 200;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(
+        image,
+        croppedAreaPixels.x,
+        croppedAreaPixels.y,
+        croppedAreaPixels.width,
+        croppedAreaPixels.height,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+
+      setPreviewCropUrl(canvas.toDataURL("image/webp", 0.92));
+    };
+  }, [preview, croppedAreaPixels]);
+
+  const generateFinalImage = useCallback(async () => {
+    if (!preview || !croppedAreaPixels) {
+      return;
+    }
+
+    const cropped = await getCroppedImg(preview, croppedAreaPixels);
+    generatedImageRef.current = cropped;
+    updateData({ profileImage: cropped });
+  }, [croppedAreaPixels, preview, updateData]);
+
+  const handleSubmit = useCallback(async () => {
+    if (!preview || !croppedAreaPixels) {
+      onSubmit();
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      setShouldSubmitAfterCrop(true);
+      await generateFinalImage();
+    } catch {
+      setShouldSubmitAfterCrop(false);
+      setIsGenerating(false);
+    }
+  }, [croppedAreaPixels, generateFinalImage, onSubmit, preview]);
+
+  useEffect(() => {
+    if (!shouldSubmitAfterCrop || !generatedImageRef.current) {
+      return;
+    }
+
+    if (data.profileImage !== generatedImageRef.current) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      setShouldSubmitAfterCrop(false);
+      setIsGenerating(false);
+      onSubmit();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [data.profileImage, onSubmit, shouldSubmitAfterCrop]);
 
   return (
     <motion.div
@@ -86,7 +198,7 @@ export default function UploadProfile({
 
       <motion.div
         variants={itemVariants}
-        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
       >
         <FieldGroup className="gap-5">
           <Field className="gap-2">
@@ -96,54 +208,118 @@ export default function UploadProfile({
             >
               Foto de Perfil
             </FieldLabel>
-            <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 transition-colors hover:border-blue-300 hover:bg-blue-50/50">
-              {preview ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={preview}
-                    alt="Pré-visualização da foto de perfil"
+
+            <div className="flex items-center justify-center gap-8">
+              <div className="space-y-3">
+                <div className="relative h-72 w-72 overflow-hidden rounded-3xl border border-slate-300 bg-slate-100 shadow-sm">
+                  {!preview ? (
+                    <label
+                      htmlFor="profile-image"
+                      className="flex h-full cursor-pointer flex-col items-center justify-center gap-4"
+                    >
+                      <ImagePlus className="size-10 text-slate-400" />
+                      <span className="text-sm text-slate-500">
+                        Clique para enviar uma foto
+                      </span>
+                    </label>
+                  ) : (
+                    <Cropper
+                      image={preview}
+                      crop={crop}
+                      zoom={zoom}
+                      aspect={1}
+                      cropShape="round"
+                      showGrid={false}
+                      objectFit="cover"
+                      onCropChange={setCrop}
+                      onZoomChange={setZoom}
+                      onCropComplete={onCropComplete}
+                    />
+                  )}
+                </div>
+
+                {preview && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <ZoomIn className="size-4" />
+                      Zoom
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>1x</span>
+                        <span>{zoom.toFixed(1)}x</span>
+                        <span>3x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={3}
+                        step={0.05}
+                        value={zoom}
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        className="w-full accent-blue-600"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-center text-xs text-slate-500">
+                  Arraste a imagem para posicionar seu rosto. Use o zoom se necessário.
+                </p>
+              </div>
+
+              <div className="hidden md:flex">
+                <Move className="size-8 text-slate-300" />
+              </div>
+
+              <div className="flex flex-col items-center gap-3">
+                <span className="text-xs font-medium text-slate-500">Preview</span>
+                <Avatar className="h-28 w-28 border-[5px] border-white shadow-xl ring-1 ring-slate-200">
+                  <AvatarImage
+                    src={previewCropUrl ?? preview ?? undefined}
+                    alt="Prévia da foto"
                     className="h-full w-full object-cover"
                   />
-                  <button
-                    type="button"
-                    onClick={() => updateData({ profileImage: null })}
-                    className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-                    aria-label="Remover foto"
-                  >
-                    <X className="size-4" />
-                  </button>
-                </>
-              ) : (
-                <label
-                  htmlFor="profile-image"
-                  className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-3 px-6 text-slate-400"
-                >
-                  <ImagePlus className="size-8 text-slate-400" />
-                  <span className="text-base">Arraste sua foto aqui</span>
-                  <span className="text-xs text-slate-500">
-                    ou clique para selecionar um arquivo
-                  </span>
-                </label>
-              )}
+                  <AvatarFallback className="bg-slate-200 text-slate-400">
+                    <ImagePlus className="size-6" />
+                  </AvatarFallback>
+                </Avatar>
+              </div>
             </div>
+
             {preview && (
-              <button
-                type="button"
-                onClick={() => updateData({ profileImage: null })}
-                className="text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
-              >
-                Trocar foto
-              </button>
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateData({
+                      profileImage: null,
+                    });
+                    setZoom(1);
+                    setCrop({
+                      x: 0,
+                      y: 0,
+                    });
+                    setCroppedAreaPixels(undefined);
+                  }}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Trocar foto
+                </button>
+              </div>
             )}
+
             <Input
               id="profile-image"
               type="file"
               accept="image/*"
               className="sr-only"
               onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  updateData({ profileImage: e.target.files[0] });
+                if (e.target.files?.length) {
+                  updateData({
+                    profileImage: e.target.files[0],
+                  });
                 }
               }}
             />
@@ -154,7 +330,7 @@ export default function UploadProfile({
               htmlFor="profile-title"
               className="text-sm font-medium text-slate-700"
             >
-              Titulo Profissional
+              Título Profissional
             </FieldLabel>
             <Input
               id="profile-title"
@@ -177,14 +353,14 @@ export default function UploadProfile({
               id="profile-bio"
               rows={4}
               className="w-full rounded-lg border border-slate-300 bg-transparent px-4 py-3 text-sm outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              placeholder="Escreva um resumo curto sobre voce, sua experiencia e no que voce se destaca."
+              placeholder="Escreva um resumo curto sobre você, sua experiência e no que você se destaca."
               value={data.profileDescription}
               onChange={(e) =>
                 updateData({ profileDescription: e.target.value })
               }
             />
             <FieldDescription className="text-xs text-slate-500">
-              Uma descricao curta ajuda seu perfil a parecer mais completo.
+              Uma descrição curta ajuda seu perfil a parecer mais completo.
             </FieldDescription>
           </Field>
         </FieldGroup>
@@ -203,11 +379,17 @@ export default function UploadProfile({
           Voltar
         </button>
         <Button
-          onClick={onSubmit}
-          disabled={isSubmitting}
+          onClick={() => {
+            void handleSubmit();
+          }}
+          disabled={isSubmitting || isGenerating}
           className="rounded-full bg-blue-600 px-8 hover:bg-blue-700"
         >
-          {isSubmitting ? "Finalizando..." : "Finalizar Cadastro"}
+          {isGenerating
+            ? "Processando foto..."
+            : isSubmitting
+              ? "Finalizando..."
+              : "Finalizar Cadastro"}
           <Check className="ml-1 size-4" />
         </Button>
       </motion.div>

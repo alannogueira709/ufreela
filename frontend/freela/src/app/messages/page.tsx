@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { getMyFreelancerProposals } from '@/lib/proposal-service';
 import { OpportunityPublisher } from '@/types/opportunity';
 import { useAuth } from '@/contexts/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function ChatPage() {
   const [conversationId, setConversationId] = useState<number | null>(null);
@@ -198,12 +199,17 @@ export default function ChatPage() {
                       : 'hover:bg-slate-100 border border-transparent'
                   }`}
                 >
-                  <div className="relative w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center font-medium text-blue-600">
-                    {otherUser.avatar_url ? (
-                      <img src={otherUser.avatar_url} alt={name} className="w-full h-full object-cover" />
-                    ) : (
-                      initials
-                    )}
+                  <div className="relative w-12 h-12 shrink-0">
+                    <Avatar className="h-12 w-12 bg-blue-100 text-blue-600">
+                      <AvatarImage
+                        src={otherUser.avatar_url ?? undefined}
+                        alt={name}
+                        className="h-full w-full object-cover"
+                      />
+                      <AvatarFallback className="bg-blue-100 text-blue-600">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
                     {isOnline && (
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full z-10"></div>
                     )}

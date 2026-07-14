@@ -40,11 +40,14 @@ const stepVariants = {
   }),
 };
 
+const onboardingStepStorageKey = "ufreela:onboarding-step";
+
 export default function RegisterCompletePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Role>(null);
   const [currentStep, setCurrentStep] = useState(1);
+  const [stepRestored, setStepRestored] = useState(false);
   const [direction, setDirection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -69,6 +72,36 @@ export default function RegisterCompletePage() {
       setSelected(formData.role as Role);
     }
   }, [formData.role]);
+
+  useEffect(() => {
+    try {
+      const rawStep = localStorage.getItem(onboardingStepStorageKey);
+      if (!rawStep) return;
+
+      const parsedStep = Number(rawStep);
+      if (
+        Number.isInteger(parsedStep) &&
+        parsedStep >= 1 &&
+        parsedStep <= steps.length
+      ) {
+        setCurrentStep(parsedStep);
+      }
+    } catch {
+      // Ignora falhas de storage.
+    } finally {
+      setStepRestored(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!stepRestored) return;
+
+    try {
+      localStorage.setItem(onboardingStepStorageKey, String(currentStep));
+    } catch {
+      // Ignora falhas de storage.
+    }
+  }, [currentStep, stepRestored]);
 
   // Pre-popula o formulario com os dados que o provedor OAuth (Google,
   // GitHub, LinkedIn) ja forneceu e o allauth salvou no User -- name,
@@ -148,6 +181,11 @@ export default function RegisterCompletePage() {
       const currentUser = await getCurrentUser();
       queryClient.setQueryData(["auth", "user"], currentUser);
       clearDraft();
+      try {
+        localStorage.removeItem(onboardingStepStorageKey);
+      } catch {
+        // Ignora falhas de storage.
+      }
 
       if (selectedRole === "freelancer") {
         router.push("/welcome/freelancer");

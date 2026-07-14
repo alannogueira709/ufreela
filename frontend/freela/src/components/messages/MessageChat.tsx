@@ -7,6 +7,7 @@ import { Message, User } from '@/types/chat';
 import { Phone, Video, Info, Plus, Smile, Send, Lock, CheckCheck } from 'lucide-react';
 import { getAvatarUrl } from '@/lib/avatar';
 import { useFormDraft } from '@/lib/hooks/useFormDraft';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ChatWindowProps {
   conversationId: number;
@@ -33,6 +34,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   useEffect(() => {
     setDraft({ inputValue });
   }, [inputValue, setDraft]);
+
+  useEffect(() => {
+    setInputValue(draft.inputValue || '');
+  }, [draft.inputValue]);
   
   const [visibleCount, setVisibleCount] = useState(20);
   const prevMessagesLength = useRef(0);
@@ -75,12 +80,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       {/* Header */}
       <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-sm z-10">
         <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center font-bold text-slate-600 bg-slate-200">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={contactName} className="w-full h-full object-cover" />
-            ) : (
-              initials
-            )}
+          <div className="relative w-10 h-10">
+            <Avatar className="h-10 w-10 bg-slate-200 text-slate-600">
+              <AvatarImage
+                src={avatarUrl ?? undefined}
+                alt={contactName}
+                className="h-full w-full object-cover"
+              />
+              <AvatarFallback className="bg-slate-200 text-slate-600">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
             <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
           </div>
           <div>
@@ -125,13 +135,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           return (
             <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start gap-3'}`}>
               {!isCurrentUser && (
-                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mt-auto mb-5 flex items-center justify-center font-bold text-xs text-slate-600 bg-slate-200">
+                <div className="w-8 h-8 shrink-0 mt-auto mb-5 relative">
                   {showAvatar ? (
-                    msgSenderAvatarUrl ? (
-                      <img src={msgSenderAvatarUrl} alt={msgSenderName} className="w-full h-full object-cover" />
-                    ) : (
-                      msgSenderInitials
-                    )
+                    <Avatar className="h-8 w-8 bg-slate-200 text-slate-600">
+                      <AvatarImage
+                        src={msgSenderAvatarUrl ?? undefined}
+                        alt={msgSenderName}
+                        className="h-full w-full object-cover"
+                      />
+                      <AvatarFallback className="bg-slate-200 text-[10px] text-slate-600">
+                        {msgSenderInitials}
+                      </AvatarFallback>
+                    </Avatar>
                   ) : (
                     <div className="w-full h-full" /> // Placeholder for alignment
                   )}
@@ -183,7 +198,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <button
             type="submit"
             disabled={!inputValue.trim()}
-            className="w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:hover:bg-blue-600 ml-1 flex-shrink-0"
+            className="w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:hover:bg-blue-600 ml-1 shrink-0"
           >
             <Send size={18} className="ml-0.5" />
           </button>
