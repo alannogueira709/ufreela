@@ -3,11 +3,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useChatSocket } from '@/app/hooks/useMessageSocket';
 import { chatService } from '@/lib/api';
-import { Message, User } from '@/types/chat';
-import { Phone, Video, Info, Plus, Smile, Send, Lock, CheckCheck } from 'lucide-react';
+import { Message as ChatMessage, User } from '@/types/chat';
+import { Phone, Video, Info, Plus, Smile, Send, Lock, CheckCheck, Paperclip, X, FileText } from 'lucide-react';
 import { getAvatarUrl } from '@/lib/avatar';
 import { useFormDraft } from '@/lib/hooks/useFormDraft';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Message, MessageAvatar, MessageContent, MessageFooter } from '@/components/ui/message';
+import { Bubble, BubbleContent } from '@/components/ui/bubble';
+import { 
+  Attachment, 
+  AttachmentGroup, 
+  AttachmentMedia, 
+  AttachmentContent, 
+  AttachmentTitle, 
+  AttachmentDescription, 
+  AttachmentActions, 
+  AttachmentAction 
+} from '@/components/ui/attachment';
 
 interface ChatWindowProps {
   conversationId: number;
@@ -27,6 +39,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     storage: "sessionStorage",
   });
   const [inputValue, setInputValue] = useState(draft.inputValue || '');
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -61,12 +76,55 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     prevMessagesLength.current = messages.length;
   }, [messages]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    const maxSizeBytes = 5 * 1024 * 1024; // 5MB limit
+    
+    const validFiles: File[] = [];
+    let hasLargeFile = false;
+    
+    files.forEach((file) => {
+      if (file.size > maxSizeBytes) {
+        hasLargeFile = true;
+      } else {
+        validFiles.push(file);
+      }
+    });
+    
+    if (hasLargeFile) {
+      setFileError("O tamanho máximo por arquivo é de 5MB.");
+      setTimeout(() => setFileError(null), 5000);
+    }
+    
+    setPendingAttachments((prev) => [...prev, ...validFiles]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() && pendingAttachments.length === 0) return;
     
-    sendMessage(inputValue.trim());
+    let finalContent = inputValue.trim();
+    
+    if (pendingAttachments.length > 0) {
+      const attachmentData = pendingAttachments.map(file => {
+        const localUrl = URL.createObjectURL(file);
+        return {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: localUrl
+        };
+      });
+      
+      const attachmentTags = attachmentData.map(att => `[ATTACHMENT:${JSON.stringify(att)}]`).join("");
+      finalContent = `${finalContent} ${attachmentTags}`.trim();
+    }
+    
+    sendMessage(finalContent);
     setInputValue('');
+    setPendingAttachments([]);
   };
 
   const contactName = otherUser ? `${otherUser.first_name} ${otherUser.last_name}`.trim() || otherUser.username : 'Unknown User';
@@ -132,10 +190,33 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           const msgSenderName = `${msg.sender.first_name} ${msg.sender.last_name}`.trim() || msg.sender.username;
           const msgSenderInitials = msgSenderName.substring(0, 2).toUpperCase();
           
+          // Parse attachments encoded in the message content
+          const attachmentRegex = /\[ATTACHMENT:({.*?})\]/g;
+          const attachments: Array<{ name: string; size: number; type: string; url?: string }> = [];
+          let cleanContent = msg.content;
+          
+          let match;
+          const unescapedContent = msg.content
+            .replace(/&quot;/g, '"')
+            .replace(/&#x27;/g, "'")
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&');
+
+          while ((match = attachmentRegex.exec(unescapedContent)) !== null) {
+            try {
+              attachments.push(JSON.parse(match[1]));
+            } catch (e) {
+              console.error("Failed to parse attachment JSON:", e);
+            }
+          }
+          
+          cleanContent = cleanContent.replace(/\[ATTACHMENT:.*?\]/g, "").trim();
+
           return (
-            <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start gap-3'}`}>
+            <Message key={msg.id} align={isCurrentUser ? "end" : "start"}>
               {!isCurrentUser && (
-                <div className="w-8 h-8 shrink-0 mt-auto mb-5 relative">
+                <MessageAvatar className="bg-transparent">
                   {showAvatar ? (
                     <Avatar className="h-8 w-8 bg-slate-200 text-slate-600">
                       <AvatarImage
@@ -148,25 +229,73 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       </AvatarFallback>
                     </Avatar>
                   ) : (
-                    <div className="w-full h-full" /> // Placeholder for alignment
+                    <div className="w-8 h-8" />
                   )}
-                </div>
+                </MessageAvatar>
               )}
               
-              <div className={`flex flex-col gap-1 max-w-[75%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
-                <div className={`px-5 py-3.5 text-[15px] leading-relaxed ${
-                  isCurrentUser 
-                    ? 'bg-blue-600 text-white rounded-2xl rounded-br-sm' 
-                    : 'bg-white border border-slate-100 shadow-sm text-slate-700 rounded-2xl rounded-bl-sm'
-                }`}>
-                  <p>{msg.content}</p>
-                </div>
-                <div className="flex items-center gap-1 text-[11px] text-slate-400 px-1">
+              <MessageContent>
+                <Bubble variant={isCurrentUser ? "default" : "secondary"}>
+                  <BubbleContent>
+                    {cleanContent && <p className="whitespace-pre-wrap break-all">{cleanContent}</p>}
+                    
+                    {attachments.length > 0 && (
+                      <div className="flex flex-col gap-2 mt-2">
+                        {attachments.map((att, attIdx) => {
+                          const isImg = att.type.startsWith("image/");
+                          const sizeStr = (att.size / (1024 * 1024)).toFixed(2);
+                          return (
+                            <div key={attIdx} className="relative">
+                              <Attachment 
+                                size="sm" 
+                                className={isCurrentUser ? "bg-blue-700 border-blue-500 text-white" : ""}
+                              >
+                                <AttachmentMedia variant={isImg ? "image" : "icon"}>
+                                  {isImg && att.url ? (
+                                    <img src={att.url} alt={att.name} className="object-cover w-full h-full" />
+                                  ) : (
+                                    <FileText size={16} className={isCurrentUser ? "text-blue-100" : "text-slate-400"} />
+                                  )}
+                                </AttachmentMedia>
+                                <AttachmentContent>
+                                  <AttachmentTitle className={isCurrentUser ? "text-white" : ""}>
+                                    {att.name}
+                                  </AttachmentTitle>
+                                  <AttachmentDescription className={isCurrentUser ? "text-blue-200" : ""}>
+                                    {sizeStr} MB
+                                  </AttachmentDescription>
+                                </AttachmentContent>
+                                {att.url && (
+                                  <AttachmentActions>
+                                    <a href={att.url} download={att.name} target="_blank" rel="noopener noreferrer">
+                                      <AttachmentAction className={isCurrentUser ? "text-blue-200 hover:text-white hover:bg-blue-800" : ""}>
+                                        Download
+                                      </AttachmentAction>
+                                    </a>
+                                  </AttachmentActions>
+                                )}
+                              </Attachment>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </BubbleContent>
+                </Bubble>
+                <MessageFooter>
                   <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  {isCurrentUser && <CheckCheck size={14} className="text-blue-500" />}
-                </div>
-              </div>
-            </div>
+                  {isCurrentUser && (
+                    <span className="ml-1">
+                      {msg.is_read ? (
+                        <CheckCheck size={14} className="text-blue-500 inline" />
+                      ) : (
+                        <CheckCheck size={14} className="text-slate-300 inline" />
+                      )}
+                    </span>
+                  )}
+                </MessageFooter>
+              </MessageContent>
+            </Message>
           );
         })}
         
@@ -181,10 +310,61 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-white/80 backdrop-blur-sm border-t border-slate-100">
+      <div className="p-4 bg-white/80 backdrop-blur-sm border-t border-slate-100 flex flex-col gap-2">
+        {/* File Error Notification */}
+        {fileError && (
+          <div className="text-xs text-red-500 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 self-start">
+            {fileError}
+          </div>
+        )}
+
+        {/* Pending Attachments Preview */}
+        {pendingAttachments.length > 0 && (
+          <AttachmentGroup className="mb-2">
+            {pendingAttachments.map((file, idx) => {
+              const isImage = file.type.startsWith('image/');
+              const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+              return (
+                <Attachment key={idx} size="sm">
+                  <AttachmentMedia variant={isImage ? "image" : "icon"}>
+                    {isImage ? (
+                      <img src={URL.createObjectURL(file)} alt={file.name} className="object-cover w-full h-full" />
+                    ) : (
+                      <FileText size={16} />
+                    )}
+                  </AttachmentMedia>
+                  <AttachmentContent>
+                    <AttachmentTitle>{file.name}</AttachmentTitle>
+                    <AttachmentDescription>{sizeInMB} MB</AttachmentDescription>
+                  </AttachmentContent>
+                  <AttachmentActions>
+                    <AttachmentAction 
+                      onClick={() => setPendingAttachments(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={14} />
+                    </AttachmentAction>
+                  </AttachmentActions>
+                </Attachment>
+              );
+            })}
+          </AttachmentGroup>
+        )}
+
         <form onSubmit={handleSubmit} className="flex items-center gap-3 bg-[#f8fafc] border border-slate-200/60 rounded-full pl-2 pr-2 py-2 mb-3">
-          <button type="button" className="p-2 text-slate-600 hover:text-slate-900 transition-colors hover:bg-slate-200 rounded-full">
-            <Plus size={22} />
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            className="hidden" 
+            multiple 
+          />
+          <button 
+            type="button" 
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 text-slate-600 hover:text-slate-900 transition-colors hover:bg-slate-200 rounded-full"
+          >
+            <Paperclip size={20} />
           </button>
           
           <input
@@ -197,7 +377,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           
           <button
             type="submit"
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() && pendingAttachments.length === 0}
             className="w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:hover:bg-blue-600 ml-1 shrink-0"
           >
             <Send size={18} className="ml-0.5" />

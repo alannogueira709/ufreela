@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getCroppedImg } from "@/lib/cropImage";
+import { Slider } from "@/components/ui/slider";
 
 import type { OnboardingFormData } from "./types";
 
@@ -251,14 +252,13 @@ export default function UploadProfile({
                         <span>{zoom.toFixed(1)}x</span>
                         <span>3x</span>
                       </div>
-                      <input
-                        type="range"
+                      <Slider
                         min={1}
                         max={3}
                         step={0.05}
-                        value={zoom}
-                        onChange={(e) => setZoom(Number(e.target.value))}
-                        className="w-full accent-blue-600"
+                        value={[zoom]}
+                        onValueChange={(values) => setZoom(Array.isArray(values) ? values[0] : values)}
+                        className="w-full"
                       />
                     </div>
                   </div>
