@@ -14,6 +14,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 import dj_database_url
 
@@ -347,17 +348,41 @@ STORAGES = {
     },
 }
 
-# Supabase Storage (S3-compatible) is used in production for user uploads.
-if os.environ.get("SUPABASE_S3_ENDPOINT"):
-    STORAGES["default"]["BACKEND"] = "storages.backends.s3boto3.S3Boto3Storage"
+# ── Supabase Storage (S3-compatible) ─────────────────────
+# Dois buckets, com propositos distintos:
+#   - SUPABASE_PUBLIC_BUCKET (default): imagens publicas (avatar, portfolio).
+#     Servidas por URL publica estavel, sem assinatura.
+#   - SUPABASE_PRIVATE_BUCKET ("private"): anexos de conversas e documentos
+#     sensiveis (LGPD). Acesso apenas por URLs assinadas temporarias geradas
+#     pelo backend apos checagem de autorizacao (ver core/storages.py).
+# ATENCAO: sem SUPABASE_S3_ENDPOINT no ambiente, o fallback e o disco local
+# (efemero no Cloud Run) — os uploads nunca chegam ao bucket.
+_supabase_s3_endpoint = os.environ.get("SUPABASE_S3_ENDPOINT", "").rstrip("/")
+SUPABASE_PUBLIC_BUCKET = os.environ.get("SUPABASE_PUBLIC_BUCKET", "ufreela-public")
+SUPABASE_PRIVATE_BUCKET = os.environ.get("SUPABASE_PRIVATE_BUCKET", "ufreela-private")
+SUPABASE_S3_HOST = (
+    urlparse(_supabase_s3_endpoint).netloc if _supabase_s3_endpoint else ""
+)
+
+if _supabase_s3_endpoint:
+    STORAGES["default"]["BACKEND"] = "core.storages.SupabasePublicStorage"
+    STORAGES["private"] = {"BACKEND": "core.storages.SupabasePrivateStorage"}
+
     AWS_ACCESS_KEY_ID = os.environ.get("SUPABASE_ACCESS_KEY")
     AWS_SECRET_ACCESS_KEY = os.environ.get("SUPABASE_SECRET_KEY")
-    AWS_STORAGE_BUCKET_NAME = os.environ.get("SUPABASE_BUCKET_NAME", "ufreela-media")
-    AWS_S3_ENDPOINT_URL = os.environ.get("SUPABASE_S3_ENDPOINT")
+    AWS_S3_ENDPOINT_URL = _supabase_s3_endpoint
     AWS_S3_REGION_NAME = os.environ.get("SUPABASE_REGION", "sa-east-1")
-    AWS_S3_FILE_OVERWRITE = False
-    AWS_DEFAULT_ACL = "public-read"
-    AWS_QUERYSTRING_AUTH = False
+    # Supabase S3 exige enderecamento path-style ({endpoint}/{bucket}/{key})
+    # e nao suporta ACLs por objeto — o acesso publico e definido no bucket
+    # (marcar APENAS o bucket publico como "Public" no dashboard).
+    AWS_S3_ADDRESSING_STYLE = "path"
+else:
+    # Dev local: disco. O "private" fica em subpasta propria para simular
+    # a separacao dos buckets.
+    STORAGES["private"] = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": BASE_DIR / "media" / "private"},
+    }
 
 
 SIMPLE_JWT = {

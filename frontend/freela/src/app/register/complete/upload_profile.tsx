@@ -70,6 +70,49 @@ export default function UploadProfile({
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area>();
   const [isGenerating, setIsGenerating] = useState(false);
   const [shouldSubmitAfterCrop, setShouldSubmitAfterCrop] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (dragCounter.current === 1) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current <= 0) {
+      setIsDragging(false);
+      dragCounter.current = 0;
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith("image/")) {
+        setZoom(1);
+        setCrop({ x: 0, y: 0 });
+        setCroppedAreaPixels(undefined);
+        updateData({ profileImage: file });
+      }
+    }
+  }, [updateData]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const generatedImageRef = useRef<File | null>(null);
   const [previewCropUrl, setPreviewCropUrl] = useState<string | null>(null);
@@ -212,31 +255,53 @@ export default function UploadProfile({
 
             <div className="flex items-center justify-center gap-8">
               <div className="space-y-3">
-                <div className="relative h-72 w-72 overflow-hidden rounded-3xl border border-slate-300 bg-slate-100 shadow-sm">
-                  {!preview ? (
-                    <label
-                      htmlFor="profile-image"
-                      className="flex h-full cursor-pointer flex-col items-center justify-center gap-4"
-                    >
-                      <ImagePlus className="size-10 text-slate-400" />
-                      <span className="text-sm text-slate-500">
-                        Clique para enviar uma foto
-                      </span>
-                    </label>
-                  ) : (
-                    <Cropper
-                      image={preview}
-                      crop={crop}
-                      zoom={zoom}
-                      aspect={1}
-                      cropShape="round"
-                      showGrid={false}
-                      objectFit="cover"
-                      onCropChange={setCrop}
-                      onZoomChange={setZoom}
-                      onCropComplete={onCropComplete}
-                    />
-                  )}
+                <div
+                  className={`relative h-72 w-72 overflow-hidden rounded-3xl border shadow-sm transition-all duration-200 ${isDragging
+                      ? "border-blue-500 bg-blue-50/50 ring-4 ring-blue-50"
+                      : "border-slate-300 bg-slate-100"
+                    }`}
+                  onDragEnter={handleDragEnter}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  {/* Dropzone overlay (always pointer-events-none to prevent blocking and flickering) */}
+                  <div
+                    className={`pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-blue-50/90 backdrop-blur-sm transition-all duration-200 ${isDragging ? "opacity-100" : "opacity-0"
+                      }`}
+                  >
+                    <ImagePlus className="size-12 animate-bounce text-blue-600" />
+                    <span className="text-sm font-semibold text-blue-700">
+                      Solte a foto aqui
+                    </span>
+                  </div>
+
+                  <div className="h-full w-full">
+                    {!preview ? (
+                      <label
+                        htmlFor="profile-image"
+                        className="flex h-full cursor-pointer flex-col items-center justify-center gap-4"
+                      >
+                        <ImagePlus className="size-10 text-slate-400" />
+                        <span className="text-sm text-slate-500">
+                          Clique ou arraste para enviar uma foto
+                        </span>
+                      </label>
+                    ) : (
+                      <Cropper
+                        image={preview}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={1}
+                        cropShape="round"
+                        showGrid={false}
+                        objectFit="cover"
+                        onCropChange={setCrop}
+                        onZoomChange={setZoom}
+                        onCropComplete={onCropComplete}
+                      />
+                    )}
+                  </div>
                 </div>
 
                 {preview && (
@@ -317,6 +382,9 @@ export default function UploadProfile({
               className="sr-only"
               onChange={(e) => {
                 if (e.target.files?.length) {
+                  setZoom(1);
+                  setCrop({ x: 0, y: 0 });
+                  setCroppedAreaPixels(undefined);
                   updateData({
                     profileImage: e.target.files[0],
                   });
@@ -393,6 +461,7 @@ export default function UploadProfile({
           <Check className="ml-1 size-4" />
         </Button>
       </motion.div>
+      <canvas ref={canvasRef} style={{ display: "none" }} />
     </motion.div>
   );
 }
