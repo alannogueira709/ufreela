@@ -134,6 +134,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             sender=self.user,
             content=content,
         )
+        conversation.save(update_fields=["updated_at"])
         from .serializers import MessageSerializer
 
         return MessageSerializer(message).data

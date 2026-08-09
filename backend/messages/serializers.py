@@ -11,10 +11,33 @@ class UserSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
+    has_attachment = serializers.SerializerMethodField()
+
+    def get_has_attachment(self, obj):
+        return bool(obj.attachment)
+
     class Meta:
         model = Message
-        fields = ['id', 'sender', 'content', 'timestamp', 'is_read']
-        read_only_fields = ['id', 'timestamp', 'sender']
+        fields = [
+            'id',
+            'sender',
+            'content',
+            'timestamp',
+            'is_read',
+            'attachment_name',
+            'attachment_size',
+            'attachment_content_type',
+            'has_attachment',
+        ]
+        read_only_fields = [
+            'id',
+            'timestamp',
+            'sender',
+            'attachment_name',
+            'attachment_size',
+            'attachment_content_type',
+            'has_attachment',
+        ]
 
 class ConversationSerializer(serializers.ModelSerializer):
     user1 = UserSerializer(read_only=True)
