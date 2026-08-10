@@ -31,6 +31,8 @@ class User(AbstractUser):
     id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     role        = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
     email       = models.EmailField(unique=True)
+    email_verified = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
     name        = models.CharField(max_length=100, blank=True)
     last_name   = models.CharField(max_length=100, blank=True)
     oauth_id    = EncryptedCharField(max_length=200, blank=True)
@@ -96,6 +98,34 @@ class User(AbstractUser):
             self.profile_img = ContentFile(img_io.read(), name="profile.webp")
 
         super().save(*args, **kwargs)
+
+
+class AuthCode(models.Model):
+    class Purpose(models.TextChoices):
+        EMAIL_VERIFICATION = "email_verification", "Verificacao de email"
+        PASSWORD_RESET = "password_reset", "Redefinicao de senha"
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="auth_codes",
+    )
+    email = models.EmailField()
+    purpose = models.CharField(max_length=30, choices=Purpose.choices)
+    code_hash = models.CharField(max_length=128)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["email", "purpose", "created_at"]),
+            models.Index(fields=["user", "purpose", "used_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.purpose} - {self.email}"
 # ── Perfis especializados ─────────────────────────────────
 
 class Freelancer(models.Model):
@@ -109,6 +139,8 @@ class Freelancer(models.Model):
         primary_key=True, related_name="freelancer_profile",
     )
     description        = models.TextField(blank=True)
+    profile_title      = models.CharField(max_length=200, blank=True)
+    primary_area       = models.CharField(max_length=100, blank=True)
     finished_jobs      = models.IntegerField(default=0)
     professional_level = models.CharField(
         max_length=20, choices=ProfessionalLevel.choices, blank=True,
@@ -152,4 +184,3 @@ class SavedProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.email} saved {self.saved_user.email}"
-

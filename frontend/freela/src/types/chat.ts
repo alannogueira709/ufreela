@@ -10,11 +10,15 @@ export interface User{
 
 export interface Message{
     id: number;
-    conversation_id: number;
+    conversation_id?: number;
     sender: User;
     content: string;
     timestamp: string;
     is_read: boolean;
+    attachment_name?: string;
+    attachment_size?: number | null;
+    attachment_content_type?: string;
+    has_attachment?: boolean;
 }
 
 export interface Conversation{

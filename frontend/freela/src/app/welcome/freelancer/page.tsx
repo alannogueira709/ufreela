@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { FreelancerSkillsForm } from "@/components/onboarding/freelancer-skills-form";
@@ -47,11 +48,17 @@ export default function WelcomeFreelancerPage() {
             Bem-vindo ao uFreela,
             <span className="block text-blue-600">{welcomeName}</span>
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl font-inter text-base leading-7 text-slate-500 sm:text-lg">
-            Para começarmos a sugerir projetos mais aderentes ao seu perfil,
-            selecione as ferramentas que você domina e organize sua experiência em uma etapa rápida.
-          </p>
-        </div>
+           <p className="mx-auto mt-5 max-w-2xl font-inter text-base leading-7 text-slate-500 sm:text-lg">
+             Para sugerirmos projetos mais aderentes ao seu perfil, selecione as
+             ferramentas que você domina e organize sua experiência em uma etapa rápida.
+           </p>
+           <Link
+             href="/"
+             className="mt-5 inline-flex text-sm font-semibold text-slate-500 underline-offset-4 transition-colors hover:text-blue-600 hover:underline"
+           >
+             Fazer isso depois
+           </Link>
+         </div>
 
         <div className="relative w-full max-w-4xl">
           <div className="absolute inset-x-10 top-8 h-full rounded-[2.25rem] bg-blue-200/20 blur-3xl" />

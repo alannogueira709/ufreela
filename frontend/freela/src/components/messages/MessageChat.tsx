@@ -1,51 +1,115 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, CheckCheck, FileText, Paperclip, Send, X } from 'lucide-react';
 import { useChatSocket } from '@/app/hooks/useMessageSocket';
-import { chatService } from '@/lib/api';
+import { chatService, getChatAttachmentUrl } from '@/lib/api';
 import { Message as ChatMessage, User } from '@/types/chat';
-import { Phone, Video, Info, Plus, Smile, Send, Lock, CheckCheck, Paperclip, X, FileText } from 'lucide-react';
 import { getAvatarUrl } from '@/lib/avatar';
 import { useFormDraft } from '@/lib/hooks/useFormDraft';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Message, MessageAvatar, MessageContent, MessageFooter } from '@/components/ui/message';
 import { Bubble, BubbleContent } from '@/components/ui/bubble';
-import { 
-  Attachment, 
-  AttachmentGroup, 
-  AttachmentMedia, 
-  AttachmentContent, 
-  AttachmentTitle, 
-  AttachmentDescription, 
-  AttachmentActions, 
-  AttachmentAction 
+import {
+  Attachment,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentGroup,
+  AttachmentMedia,
+  AttachmentTitle,
 } from '@/components/ui/attachment';
 
 interface ChatWindowProps {
   conversationId: number;
   currentUserId: string;
   otherUser: User | null;
+  onBack?: () => void;
+  onMessage?: (message: ChatMessage) => void;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ 
-  conversationId, 
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  'application/pdf',
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/zip',
+]);
+
+function isAllowedAttachment(file: File) {
+  return (
+    (file.type.startsWith('image/') && file.type !== 'image/svg+xml') ||
+    ALLOWED_ATTACHMENT_TYPES.has(file.type)
+  );
+}
+
+function formatFileSize(size?: number | null) {
+  if (!size) return '';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function decodeHtmlEntities(value: string) {
+  if (typeof document === 'undefined') return value;
+
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = value;
+  return textarea.value;
+}
+
+function cleanMessageContent(value: string) {
+  // Remove tags created by older versions that stored local blob URLs.
+  return decodeHtmlEntities(value)
+    .replace(/\[ATTACHMENT:[\s\S]*?\]/g, '')
+    .trim();
+}
+
+function getDateKey(timestamp: string) {
+  return new Date(timestamp).toLocaleDateString('pt-BR');
+}
+
+function formatDateLabel(timestamp: string) {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return 'Hoje';
+  if (date.toDateString() === yesterday.toDateString()) return 'Ontem';
+
+  return date.toLocaleDateString('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric',
+  });
+}
+
+export const ChatWindow: React.FC<ChatWindowProps> = ({
+  conversationId,
   currentUserId,
-  otherUser
+  otherUser,
+  onBack,
+  onMessage,
 }) => {
   const { messages, isConnected, sendMessage, setMessages } = useChatSocket(conversationId);
   const { data: draft, setData: setDraft } = useFormDraft<{ inputValue: string }>({
     key: `ufreela:chat-${conversationId}`,
-    initial: { inputValue: "" },
-    storage: "sessionStorage",
+    initial: { inputValue: '' },
+    storage: 'sessionStorage',
   });
   const [inputValue, setInputValue] = useState(draft.inputValue || '');
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(20);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  
-  // Persiste o inputValue no rascunho
+  const prevMessagesLength = useRef(0);
+
   useEffect(() => {
     setDraft({ inputValue });
   }, [inputValue, setDraft]);
@@ -53,20 +117,43 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   useEffect(() => {
     setInputValue(draft.inputValue || '');
   }, [draft.inputValue]);
-  
-  const [visibleCount, setVisibleCount] = useState(20);
-  const prevMessagesLength = useRef(0);
 
   useEffect(() => {
+    setVisibleCount(20);
+    prevMessagesLength.current = 0;
+  }, [conversationId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const loadHistory = async () => {
       try {
         const response = await chatService.getMessages(conversationId);
-        setMessages(response.data);
+        if (!cancelled) {
+          setMessages((previous) => {
+            const messagesById = new Map<number, ChatMessage>(
+              (response.data as ChatMessage[]).map((message): [number, ChatMessage] => [
+                message.id,
+                message,
+              ])
+            );
+
+            previous.forEach((message) => messagesById.set(message.id, message));
+            return Array.from(messagesById.values()).sort(
+              (first, second) =>
+                new Date(first.timestamp).getTime() - new Date(second.timestamp).getTime()
+            );
+          });
+        }
       } catch (error) {
-        console.error('Failed to load messages:', error);
+        console.error('Não foi possível carregar mensagens:', error);
       }
     };
-    loadHistory();
+
+    void loadHistory();
+    return () => {
+      cancelled = true;
+    };
   }, [conversationId, setMessages]);
 
   useEffect(() => {
@@ -76,311 +163,375 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     prevMessagesLength.current = messages.length;
   }, [messages]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    const files = Array.from(e.target.files);
-    const maxSizeBytes = 5 * 1024 * 1024; // 5MB limit
-    
+  useEffect(() => {
+    void chatService.markAsRead(conversationId).catch((error) => {
+      console.error('Não foi possível marcar mensagens como lidas:', error);
+    });
+  }, [conversationId]);
+
+  const lastMessageId = messages[messages.length - 1]?.id;
+  const lastMessageSenderId = messages[messages.length - 1]?.sender.id;
+
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessageId || !lastMessage) return;
+
+    onMessage?.(lastMessage);
+
+    if (String(lastMessageSenderId) !== String(currentUserId)) {
+      void chatService.markAsRead(conversationId).catch((error) => {
+        console.error('Não foi possível marcar mensagem como lida:', error);
+      });
+    }
+  }, [conversationId, currentUserId, lastMessageId, lastMessageSenderId, messages, onMessage]);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files) return;
+
     const validFiles: File[] = [];
-    let hasLargeFile = false;
-    
-    files.forEach((file) => {
-      if (file.size > maxSizeBytes) {
-        hasLargeFile = true;
+    let errorMessage = '';
+
+    Array.from(event.target.files).forEach((file) => {
+      if (file.size > MAX_ATTACHMENT_SIZE) {
+        errorMessage = 'O tamanho máximo por arquivo é de 10 MB.';
+      } else if (!isAllowedAttachment(file)) {
+        errorMessage = 'Esse tipo de arquivo não é permitido.';
       } else {
         validFiles.push(file);
       }
     });
-    
-    if (hasLargeFile) {
-      setFileError("O tamanho máximo por arquivo é de 5MB.");
-      setTimeout(() => setFileError(null), 5000);
-    }
-    
-    setPendingAttachments((prev) => [...prev, ...validFiles]);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    setPendingAttachments((previous) => [...previous, ...validFiles]);
+    setFileError(errorMessage || null);
+    event.target.value = '';
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim() && pendingAttachments.length === 0) return;
-    
-    let finalContent = inputValue.trim();
-    
-    if (pendingAttachments.length > 0) {
-      const attachmentData = pendingAttachments.map(file => {
-        const localUrl = URL.createObjectURL(file);
-        return {
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          url: localUrl
-        };
-      });
-      
-      const attachmentTags = attachmentData.map(att => `[ATTACHMENT:${JSON.stringify(att)}]`).join("");
-      finalContent = `${finalContent} ${attachmentTags}`.trim();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const content = inputValue.trim();
+    if (!content && pendingAttachments.length === 0) return;
+
+    setFileError(null);
+
+    if (pendingAttachments.length === 0) {
+      if (!isConnected) {
+        setFileError('A conexão ainda não está pronta. Tente novamente em instantes.');
+        return;
+      }
+
+      sendMessage(content);
+      setInputValue('');
+      return;
     }
-    
-    sendMessage(finalContent);
-    setInputValue('');
-    setPendingAttachments([]);
+
+    setIsUploading(true);
+    let uploadedAny = false;
+
+    try {
+      for (const [index, file] of pendingAttachments.entries()) {
+        const response = await chatService.uploadAttachment(
+          conversationId,
+          file,
+          index === 0 ? content : ''
+        );
+        const uploadedMessage = response.data as ChatMessage;
+
+        setMessages((previous) =>
+          previous.some((message) => message.id === uploadedMessage.id)
+            ? previous
+            : [...previous, uploadedMessage]
+        );
+        setPendingAttachments((previous) => previous.filter((item) => item !== file));
+        uploadedAny = true;
+      }
+
+      setInputValue('');
+    } catch (error) {
+      console.error('Não foi possível enviar o anexo:', error);
+      setFileError('Não foi possível enviar o anexo. Tente novamente.');
+      if (uploadedAny) setInputValue('');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const contactName = otherUser ? `${otherUser.first_name} ${otherUser.last_name}`.trim() || otherUser.username : 'Unknown User';
-  const avatarUrl = otherUser ? getAvatarUrl(otherUser.email, otherUser.profile_img || otherUser.avatar_url) : null;
+  const contactName = otherUser
+    ? `${otherUser.first_name} ${otherUser.last_name}`.trim() || otherUser.username
+    : 'Usuário';
+  const avatarUrl = otherUser
+    ? getAvatarUrl(otherUser.email, otherUser.profile_img || otherUser.avatar_url)
+    : null;
   const initials = contactName.substring(0, 2).toUpperCase();
-  
   const visibleMessages = messages.slice(-visibleCount);
 
   return (
-    <div className="flex flex-col h-full bg-transparent">
-      {/* Header */}
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-sm z-10">
-        <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10">
-            <Avatar className="h-10 w-10 bg-slate-200 text-slate-600">
-              <AvatarImage
-                src={avatarUrl ?? undefined}
-                alt={contactName}
-                className="h-full w-full object-cover"
-              />
-              <AvatarFallback className="bg-slate-200 text-slate-600">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+    <div className="flex h-full min-h-0 flex-col bg-transparent">
+      <div className="z-10 flex items-center justify-between border-b border-slate-200/80 bg-white/90 p-4 backdrop-blur-sm">
+        <div className="flex min-w-0 items-center gap-3">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 md:hidden"
+              aria-label="Voltar para conversas"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <Avatar className="h-10 w-10 shrink-0 bg-slate-200 text-slate-600">
+            <AvatarImage
+              src={avatarUrl ?? undefined}
+              alt={contactName}
+              className="h-full w-full object-cover"
+            />
+            <AvatarFallback className="bg-slate-200 text-slate-600">{initials}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <h3 className="truncate font-bold leading-tight text-slate-900">{contactName}</h3>
+            <span className="text-[11px] text-slate-500">Conversa privada</span>
           </div>
-          <div>
-            <h3 className="font-bold text-slate-900 leading-tight">{contactName}</h3>
-            <span className="text-[10px] font-bold text-green-500 tracking-wider uppercase">ACTIVE NOW</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 text-slate-600">
-          <button className="hover:text-slate-900 transition-colors p-2 hover:bg-slate-100 rounded-full">
-            <Info size={20} />
-          </button>
         </div>
       </div>
 
-      {/* Messages Area */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {messages.length > visibleCount && (
-          <div className="flex justify-center mb-4">
-            <button 
-              onClick={() => setVisibleCount(prev => prev + 20)}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium py-1 px-3 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors"
+          <div className="mb-5 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setVisibleCount((previous) => previous + 20)}
+              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-200"
             >
               Carregar mensagens anteriores
             </button>
           </div>
         )}
 
-        {/* Date Separator */}
-        <div className="flex justify-center my-4">
-          <span className="bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-            Today
-          </span>
-        </div>
-
-        {visibleMessages.map((msg, index) => {
-          const isCurrentUser = msg.sender.id === currentUserId;
-          const showAvatar = !isCurrentUser && (index === visibleMessages.length - 1 || visibleMessages[index + 1]?.sender.id === currentUserId);
-          const msgSenderAvatarUrl = msg.sender ? getAvatarUrl(msg.sender.email, msg.sender.profile_img || msg.sender.avatar_url) : null;
-          const msgSenderName = `${msg.sender.first_name} ${msg.sender.last_name}`.trim() || msg.sender.username;
-          const msgSenderInitials = msgSenderName.substring(0, 2).toUpperCase();
-          
-          // Parse attachments encoded in the message content
-          const attachmentRegex = /\[ATTACHMENT:({.*?})\]/g;
-          const attachments: Array<{ name: string; size: number; type: string; url?: string }> = [];
-          let cleanContent = msg.content;
-          
-          let match;
-          const unescapedContent = msg.content
-            .replace(/&quot;/g, '"')
-            .replace(/&#x27;/g, "'")
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&amp;/g, '&');
-
-          while ((match = attachmentRegex.exec(unescapedContent)) !== null) {
-            try {
-              attachments.push(JSON.parse(match[1]));
-            } catch (e) {
-              console.error("Failed to parse attachment JSON:", e);
-            }
-          }
-          
-          cleanContent = cleanContent.replace(/\[ATTACHMENT:.*?\]/g, "").trim();
+        {visibleMessages.map((message, index) => {
+          const isCurrentUser = String(message.sender.id) === String(currentUserId);
+          const previousMessage = visibleMessages[index - 1];
+          const showDate =
+            !previousMessage || getDateKey(previousMessage.timestamp) !== getDateKey(message.timestamp);
+          const nextMessage = visibleMessages[index + 1];
+          const showAvatar =
+            !isCurrentUser && (!nextMessage || String(nextMessage.sender.id) !== String(message.sender.id));
+          const senderAvatarUrl = getAvatarUrl(
+            message.sender.email,
+            message.sender.profile_img || message.sender.avatar_url
+          );
+          const senderName =
+            `${message.sender.first_name} ${message.sender.last_name}`.trim() || message.sender.username;
+          const senderInitials = senderName.substring(0, 2).toUpperCase();
+          const cleanContent = cleanMessageContent(message.content);
+          const hasAttachment = Boolean(
+            message.has_attachment || message.attachment_name
+          );
+          const attachmentName = message.attachment_name || 'Anexo';
+          const attachmentUrl = getChatAttachmentUrl(message.id);
+          const isImage = message.attachment_content_type?.startsWith('image/');
 
           return (
-            <Message key={msg.id} align={isCurrentUser ? "end" : "start"}>
-              {!isCurrentUser && (
-                <MessageAvatar className="bg-transparent">
-                  {showAvatar ? (
-                    <Avatar className="h-8 w-8 bg-slate-200 text-slate-600">
-                      <AvatarImage
-                        src={msgSenderAvatarUrl ?? undefined}
-                        alt={msgSenderName}
-                        className="h-full w-full object-cover"
-                      />
-                      <AvatarFallback className="bg-slate-200 text-[10px] text-slate-600">
-                        {msgSenderInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                  ) : (
-                    <div className="w-8 h-8" />
-                  )}
-                </MessageAvatar>
+            <React.Fragment key={message.id}>
+              {showDate && (
+                <div className="my-5 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    {formatDateLabel(message.timestamp)}
+                  </span>
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
               )}
-              
-              <MessageContent>
-                <Bubble variant={isCurrentUser ? "default" : "secondary"}>
-                  <BubbleContent>
-                    {cleanContent && <p className="whitespace-pre-wrap break-all">{cleanContent}</p>}
-                    
-                    {attachments.length > 0 && (
-                      <div className="flex flex-col gap-2 mt-2">
-                        {attachments.map((att, attIdx) => {
-                          const isImg = att.type.startsWith("image/");
-                          const sizeStr = (att.size / (1024 * 1024)).toFixed(2);
-                          return (
-                            <div key={attIdx} className="relative">
-                              <Attachment 
-                                size="sm" 
-                                className={isCurrentUser ? "bg-blue-700 border-blue-500 text-white" : ""}
-                              >
-                                <AttachmentMedia variant={isImg ? "image" : "icon"}>
-                                  {isImg && att.url ? (
-                                    <img src={att.url} alt={att.name} className="object-cover w-full h-full" />
-                                  ) : (
-                                    <FileText size={16} className={isCurrentUser ? "text-blue-100" : "text-slate-400"} />
-                                  )}
-                                </AttachmentMedia>
-                                <AttachmentContent>
-                                  <AttachmentTitle className={isCurrentUser ? "text-white" : ""}>
-                                    {att.name}
-                                  </AttachmentTitle>
-                                  <AttachmentDescription className={isCurrentUser ? "text-blue-200" : ""}>
-                                    {sizeStr} MB
-                                  </AttachmentDescription>
-                                </AttachmentContent>
-                                {att.url && (
-                                  <AttachmentActions>
-                                    <a href={att.url} download={att.name} target="_blank" rel="noopener noreferrer">
-                                      <AttachmentAction className={isCurrentUser ? "text-blue-200 hover:text-white hover:bg-blue-800" : ""}>
-                                        Download
-                                      </AttachmentAction>
-                                    </a>
-                                  </AttachmentActions>
-                                )}
-                              </Attachment>
-                            </div>
-                          );
-                        })}
-                      </div>
+
+              <Message
+                align={isCurrentUser ? 'end' : 'start'}
+                className="mb-4"
+              >
+                {!isCurrentUser && (
+                  <MessageAvatar className="bg-transparent">
+                    {showAvatar ? (
+                      <Avatar className="h-8 w-8 bg-slate-200 text-slate-600">
+                        <AvatarImage
+                          src={senderAvatarUrl ?? undefined}
+                          alt={senderName}
+                          className="h-full w-full object-cover"
+                        />
+                        <AvatarFallback className="bg-slate-200 text-[10px] text-slate-600">
+                          {senderInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div className="h-8 w-8" />
                     )}
-                  </BubbleContent>
-                </Bubble>
-                <MessageFooter>
-                  <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  {isCurrentUser && (
-                    <span className="ml-1">
-                      {msg.is_read ? (
-                        <CheckCheck size={14} className="text-blue-500 inline" />
-                      ) : (
-                        <CheckCheck size={14} className="text-slate-300 inline" />
+                  </MessageAvatar>
+                )}
+
+                <MessageContent>
+                  <Bubble variant={isCurrentUser ? 'default' : 'outline'}>
+                    <BubbleContent
+                      className={isCurrentUser ? 'bg-slate-900 text-white' : 'bg-white'}
+                    >
+                      {cleanContent && (
+                        <p className="whitespace-pre-wrap break-words">{cleanContent}</p>
                       )}
+
+                      {hasAttachment && (
+                        <Attachment
+                          size="sm"
+                          className={`mt-1 max-w-[min(80vw,22rem)] ${
+                            isCurrentUser
+                              ? 'border-slate-700 bg-slate-800 text-white'
+                              : 'border-slate-200 bg-slate-50'
+                          }`}
+                        >
+                          <AttachmentMedia
+                            variant={isImage ? 'image' : 'icon'}
+                            className={isImage ? 'h-16 w-16' : ''}
+                          >
+                            {isImage ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={attachmentUrl}
+                                alt={attachmentName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <FileText
+                                size={17}
+                                className={isCurrentUser ? 'text-slate-200' : 'text-slate-500'}
+                              />
+                            )}
+                          </AttachmentMedia>
+                          <AttachmentContent>
+                            <AttachmentTitle className={isCurrentUser ? 'text-white' : 'text-slate-700'}>
+                              {attachmentName}
+                            </AttachmentTitle>
+                            <AttachmentDescription
+                              className={isCurrentUser ? 'text-slate-300' : 'text-slate-500'}
+                            >
+                              {formatFileSize(message.attachment_size) || 'Arquivo'}
+                            </AttachmentDescription>
+                          </AttachmentContent>
+                          <AttachmentActions>
+                            <a
+                              href={attachmentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+                                isCurrentUser
+                                  ? 'text-slate-200 hover:bg-slate-700 hover:text-white'
+                                  : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                              }`}
+                            >
+                              Abrir
+                            </a>
+                          </AttachmentActions>
+                        </Attachment>
+                      )}
+                    </BubbleContent>
+                  </Bubble>
+                  <MessageFooter>
+                    <span>
+                      {new Date(message.timestamp).toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </span>
-                  )}
-                </MessageFooter>
-              </MessageContent>
-            </Message>
+                    {isCurrentUser && (
+                      <span className="ml-1">
+                        <CheckCheck
+                          size={14}
+                          className={message.is_read ? 'text-blue-500' : 'text-slate-300'}
+                        />
+                      </span>
+                    )}
+                  </MessageFooter>
+                </MessageContent>
+              </Message>
+            </React.Fragment>
           );
         })}
-        
-        {/* Empty state or typing indicator placeholder */}
+
         {messages.length === 0 && (
-          <div className="flex justify-center text-slate-400 italic text-sm mt-10">
-             Nenhuma mensagem enviada ainda.
+          <div className="mt-10 flex justify-center text-sm italic text-slate-400">
+            Nenhuma mensagem enviada ainda.
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 bg-white/80 backdrop-blur-sm border-t border-slate-100 flex flex-col gap-2">
-        {/* File Error Notification */}
+      <div className="border-t border-slate-200/80 bg-white/90 p-3 backdrop-blur-sm sm:p-4">
         {fileError && (
-          <div className="text-xs text-red-500 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 self-start">
+          <div className="mb-2 rounded-lg border border-red-100 bg-red-50 px-3 py-1.5 text-xs text-red-600">
             {fileError}
           </div>
         )}
 
-        {/* Pending Attachments Preview */}
         {pendingAttachments.length > 0 && (
           <AttachmentGroup className="mb-2">
-            {pendingAttachments.map((file, idx) => {
-              const isImage = file.type.startsWith('image/');
-              const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
-              return (
-                <Attachment key={idx} size="sm">
-                  <AttachmentMedia variant={isImage ? "image" : "icon"}>
-                    {isImage ? (
-                      <img src={URL.createObjectURL(file)} alt={file.name} className="object-cover w-full h-full" />
-                    ) : (
-                      <FileText size={16} />
-                    )}
-                  </AttachmentMedia>
-                  <AttachmentContent>
-                    <AttachmentTitle>{file.name}</AttachmentTitle>
-                    <AttachmentDescription>{sizeInMB} MB</AttachmentDescription>
-                  </AttachmentContent>
-                  <AttachmentActions>
-                    <AttachmentAction 
-                      onClick={() => setPendingAttachments(prev => prev.filter((_, i) => i !== idx))}
-                      className="text-slate-400 hover:text-slate-600"
-                    >
-                      <X size={14} />
-                    </AttachmentAction>
-                  </AttachmentActions>
-                </Attachment>
-              );
-            })}
+            {pendingAttachments.map((file, index) => (
+              <Attachment key={`${file.name}-${index}`} size="sm" className="bg-slate-50">
+                <AttachmentMedia variant="icon">
+                  <FileText size={16} className="text-slate-500" />
+                </AttachmentMedia>
+                <AttachmentContent>
+                  <AttachmentTitle>{file.name}</AttachmentTitle>
+                  <AttachmentDescription>{formatFileSize(file.size)}</AttachmentDescription>
+                </AttachmentContent>
+                <AttachmentActions>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPendingAttachments((previous) => previous.filter((_, itemIndex) => itemIndex !== index))
+                    }
+                    className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700"
+                    aria-label={`Remover ${file.name}`}
+                  >
+                    <X size={14} />
+                  </button>
+                </AttachmentActions>
+              </Attachment>
+            ))}
           </AttachmentGroup>
         )}
 
-        <form onSubmit={handleSubmit} className="flex items-center gap-3 bg-[#f8fafc] border border-slate-200/60 rounded-full pl-2 pr-2 py-2 mb-3">
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            className="hidden" 
-            multiple 
+        <form
+          onSubmit={handleSubmit}
+          className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-2 py-2 focus-within:border-slate-400 focus-within:bg-white"
+        >
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            multiple
+            accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx,.zip"
           />
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-slate-600 hover:text-slate-900 transition-colors hover:bg-slate-200 rounded-full"
+            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
+            aria-label="Adicionar anexo"
           >
-            <Paperclip size={20} />
+            <Paperclip size={19} />
           </button>
-          
+
           <input
             type="text"
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={(event) => setInputValue(event.target.value)}
             placeholder="Digite sua mensagem..."
-            className="flex-1 bg-transparent border-0 focus:outline-none focus:ring-0 text-[15px] text-slate-700 placeholder:text-slate-500"
+            maxLength={2000}
+            className="min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
           />
-          
+
           <button
             type="submit"
-            disabled={!inputValue.trim() && pendingAttachments.length === 0}
-            className="w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:hover:bg-blue-600 ml-1 shrink-0"
+            disabled={isUploading || (!inputValue.trim() && pendingAttachments.length === 0)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={isUploading ? 'Enviando' : 'Enviar mensagem'}
           >
-            <Send size={18} className="ml-0.5" />
+            <Send size={17} className="ml-0.5" />
           </button>
         </form>
       </div>

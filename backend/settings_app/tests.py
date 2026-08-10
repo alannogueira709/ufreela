@@ -8,7 +8,7 @@ from users.models import Role, User
 class UserSettingsApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.role = Role.objects.create(role_name="freelancer")
+        self.role, _ = Role.objects.get_or_create(role_name="freelancer")
         self.user = User.objects.create_user(
             email="settings@example.com",
             username="settings",

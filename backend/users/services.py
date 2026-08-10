@@ -98,7 +98,8 @@ class OnboardingService:
             FreelancerRepository.upsert(
                 user,
                 description=dto.profile_description,
-                professional_level=dto.primary_area,
+                profile_title=dto.profile_title,
+                primary_area=dto.primary_area,
             )
         elif role.role_name == "publisher":
             PublisherRepository.upsert(

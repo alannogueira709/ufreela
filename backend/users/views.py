@@ -5,9 +5,14 @@ from django.db import connections
 from django.core.cache import cache
 from django.contrib.auth import logout as django_logout
 from django.shortcuts import redirect
+from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.decorators import method_decorator
 from jobs.serializers import OpportunityListSerializer
+from notifications.services import (
+    ensure_profile_completion_notification,
+    mark_profile_completion_notification_read,
+)
 from django.views.decorators.csrf import ensure_csrf_cookie
 from jobs.models import FreelancerSkill, Opportunity, Skill
 from rest_framework import status
@@ -26,13 +31,16 @@ from users.domain.exceptions import ConflictError, ValidationError
 from users.infrastructure.repositories.django_user_repository import \
     DjangoUserRepository
 
-from .models import Freelancer, Publisher, User, SavedProfile
+from .models import AuthCode, Freelancer, Publisher, User, SavedProfile
+from .otp import AuthCodeService
 from .serializers import (CustomTokenObtainPairSerializer,
                           FreelancerSkillUpdateSerializer,
                           OnboardingSerializer, RegisterSerializer,
                           SkillSerializer)
 from .services import OnboardingService
 from .throttles import (
+    EmailVerificationConfirmRateThrottle,
+    EmailVerificationRateThrottle,
     LoginRateThrottle,
     PasswordResetConfirmRateThrottle,
     PasswordResetRateThrottle,
@@ -160,6 +168,11 @@ class SocialLoginSuccessView(APIView):
         if not request.user.is_authenticated:
             return redirect(f"{settings.FRONTEND_URL}/login?error=social_auth_failed")
 
+        if not request.user.email_verified:
+            request.user.email_verified = True
+            request.user.email_verified_at = timezone.now()
+            request.user.save(update_fields=["email_verified", "email_verified_at"])
+
         refresh = RefreshToken.for_user(request.user)
         response = redirect(get_frontend_redirect_url(request.user))
         attach_auth_cookies(response, str(refresh.access_token), str(refresh))
@@ -175,6 +188,11 @@ class SocialSessionView(APIView):
                 {"authenticated": False},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
+        if not request.user.email_verified:
+            request.user.email_verified = True
+            request.user.email_verified_at = timezone.now()
+            request.user.save(update_fields=["email_verified", "email_verified_at"])
 
         refresh = RefreshToken.for_user(request.user)
         # Retorna apenas o caminho relativo (sem URL absoluta) para que o
@@ -243,15 +261,34 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            self.use_case.execute(serializer.to_command())
+            result = self.use_case.execute(serializer.to_command())
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except ConflictError as e:
             # Mantem compatibilidade com o contrato anterior do endpoint.
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+        user = User.objects.get(pk=result.user_id)
+        code = AuthCodeService.issue(user, AuthCode.Purpose.EMAIL_VERIFICATION)
+        try:
+            from core.email_service import EmailService
+
+            EmailService().send_auth_code_email(
+                user,
+                code,
+                AuthCode.Purpose.EMAIL_VERIFICATION,
+            )
+        except Exception:
+            logging.getLogger("django").exception(
+                "Erro ao enviar codigo de confirmacao de email"
+            )
+
         return Response(
-            {"message": "Usuário criado com sucesso."},
+            {
+                "message": "Conta criada. Enviamos um codigo para confirmar seu email.",
+                "email": user.email,
+                "email_verification_required": True,
+            },
             status=status.HTTP_201_CREATED,
         )
 
@@ -277,6 +314,9 @@ class CompleteRegistrationView(APIView):
             import logging
             logger = logging.getLogger("django")
             logger.exception("Erro ao enviar email de boas-vindas")
+
+        if user.role and user.role.role_name == "freelancer":
+            ensure_profile_completion_notification(user)
 
         return Response({"message": "Cadastro finalizado."})
 
@@ -316,13 +356,20 @@ class UserMeView(APIView):
                 freelancer.hourly_rate = request.data.get("hourly_rate") or None
             if "professional_level" in request.data:
                 freelancer.professional_level = request.data.get("professional_level") or ""
+            if "profile_title" in request.data:
+                freelancer.profile_title = request.data.get("profile_title") or ""
+            if "primary_area" in request.data:
+                freelancer.primary_area = request.data.get("primary_area") or ""
             if "description" in request.data:
                 freelancer.description = request.data.get("description") or ""
             freelancer.save()
             profile_override = freelancer
 
             if "skills" in request.data:
-                self._replace_freelancer_skills(freelancer, request.data.get("skills") or [])
+                skills = request.data.get("skills") or []
+                self._replace_freelancer_skills(freelancer, skills)
+                if skills:
+                    mark_profile_completion_notification_read(user)
 
         elif role == "publisher":
             publisher, _ = Publisher.objects.get_or_create(user_id=user)
@@ -365,6 +412,8 @@ class UserMeView(APIView):
                 {
                     "hourly_rate": str(freelancer.hourly_rate) if freelancer.hourly_rate else None,
                     "professional_level": freelancer.professional_level,
+                    "profile_title": freelancer.profile_title,
+                    "primary_area": freelancer.primary_area,
                     "description": freelancer.description,
                     "skills": [
                         {
@@ -460,6 +509,7 @@ class FreelancerSkillsView(APIView):
             )
 
         FreelancerSkill.objects.bulk_create(new_skills)
+        mark_profile_completion_notification_read(request.user)
 
         return Response({"message": "Habilidades cadastradas com sucesso!"})
 
@@ -580,8 +630,10 @@ class FreelancerProfileView(APIView):
                 "name": user.name,
                 "last_name": user.last_name,
                 "profile_img": user.profile_img.url if user.profile_img else None,
-                "description": freelancer.description,
-                "professional_level": freelancer.professional_level,
+                    "description": freelancer.description,
+                    "profile_title": freelancer.profile_title,
+                    "primary_area": freelancer.primary_area,
+                    "professional_level": freelancer.professional_level,
                 "hourly_rate": str(freelancer.hourly_rate) if freelancer.hourly_rate is not None else None,
                 "mean_eval": str(freelancer.mean_eval),
                 "finished_jobs": freelancer.finished_jobs,
@@ -652,45 +704,119 @@ class SaveProfileToggleView(APIView):
         return Response({"saved": is_saved}, status=status.HTTP_200_OK)
 
 
+class EmailVerificationRequestView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [EmailVerificationRateThrottle]
+
+    def post(self, request):
+        email = str(request.data.get("email") or "").strip().lower()
+        if not email:
+            return Response(
+                {"error": "O campo email é obrigatório."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.filter(email__iexact=email).first()
+        if user and not user.email_verified:
+            code = AuthCodeService.issue(user, AuthCode.Purpose.EMAIL_VERIFICATION)
+            try:
+                from core.email_service import EmailService
+
+                EmailService().send_auth_code_email(
+                    user,
+                    code,
+                    AuthCode.Purpose.EMAIL_VERIFICATION,
+                )
+            except Exception:
+                logging.getLogger("django").exception(
+                    "Erro ao reenviar codigo de confirmacao de email"
+                )
+
+        return Response(
+            {
+                "message": (
+                    "Se houver uma conta pendente de confirmação para este email, "
+                    "um novo código foi enviado."
+                )
+            }
+        )
+
+
+class EmailVerificationConfirmView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [EmailVerificationConfirmRateThrottle]
+
+    def post(self, request):
+        email = str(request.data.get("email") or "").strip().lower()
+        code = str(request.data.get("code") or "").strip()
+
+        if not email or len(code) != 6 or not code.isdigit():
+            return Response(
+                {"error": "Informe um email e um código de 6 dígitos."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.filter(email__iexact=email).first()
+        if user is None or user.email_verified:
+            if user and user.email_verified:
+                return Response({"message": "Email já confirmado."})
+            return Response(
+                {"error": "Código inválido ou expirado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not AuthCodeService.consume(
+            email,
+            AuthCode.Purpose.EMAIL_VERIFICATION,
+            code,
+        ):
+            return Response(
+                {"error": "Código inválido ou expirado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.email_verified = True
+        user.email_verified_at = timezone.now()
+        user.save(update_fields=["email_verified", "email_verified_at"])
+        return Response({"message": "Email confirmado com sucesso."})
+
+
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [PasswordResetRateThrottle]
 
     def post(self, request):
-        from django.contrib.auth.tokens import default_token_generator
-        from django.utils.http import urlsafe_base64_encode
-        from django.utils.encoding import force_bytes
-        from core.email_service import EmailService
-
-        email = request.data.get("email")
+        email = str(request.data.get("email") or "").strip().lower()
         if not email:
             return Response(
                 {"error": "O campo email é obrigatório."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            user = User.objects.get(email=email)
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            token = default_token_generator.make_token(user)
-            reset_url = f"{settings.FRONTEND_URL}/reset-password?uidb64={uid}&token={token}"
+        user = User.objects.filter(email__iexact=email).first()
+        if user:
+            code = AuthCodeService.issue(user, AuthCode.Purpose.PASSWORD_RESET)
+            try:
+                from core.email_service import EmailService
 
-            email_service = EmailService()
-            email_service.send_password_reset_email(user, reset_url)
-        except User.DoesNotExist:
-            pass
-        except Exception as e:
-            import logging
-            logger = logging.getLogger("django")
-            logger.error(f"Erro ao enviar email de reset de senha: {str(e)}")
-            return Response(
-                {"error": "Erro ao enviar e-mail de recuperação. Tente novamente mais tarde."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+                EmailService().send_auth_code_email(
+                    user,
+                    code,
+                    AuthCode.Purpose.PASSWORD_RESET,
+                )
+            except Exception:
+                logging.getLogger("django").exception(
+                    "Erro ao enviar codigo de reset de senha"
+                )
 
         return Response(
-            {"message": "Se o e-mail informado estiver cadastrado, um link de redefinição foi enviado."},
-            status=status.HTTP_200_OK
+            {
+                "message": (
+                    "Se o e-mail informado estiver cadastrado, um código de "
+                    "redefinição foi enviado."
+                )
+            },
+            status=status.HTTP_200_OK,
         )
 
 
@@ -699,13 +825,62 @@ class PasswordResetConfirmView(APIView):
     throttle_classes = [PasswordResetConfirmRateThrottle]
 
     def post(self, request):
+        email = request.data.get("email")
+        code = request.data.get("code")
+        new_password = request.data.get("new_password")
+
+        if email is not None or code is not None:
+            email = str(email or "").strip().lower()
+            code = str(code or "").strip()
+
+            if not email or len(code) != 6 or not code.isdigit() or not new_password:
+                return Response(
+                    {"error": "Email, código e nova senha são obrigatórios."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            from django.contrib.auth.password_validation import validate_password
+            from django.core.exceptions import ValidationError as DjangoValidationError
+
+            try:
+                user = User.objects.get(email__iexact=email)
+                validate_password(new_password, user)
+            except User.DoesNotExist:
+                return Response(
+                    {"error": "Código inválido ou expirado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            except DjangoValidationError as e:
+                return Response(
+                    {"error": e.messages},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not AuthCodeService.consume(
+                email,
+                AuthCode.Purpose.PASSWORD_RESET,
+                code,
+            ):
+                return Response(
+                    {"error": "Código inválido ou expirado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user.set_password(new_password)
+            user.save(update_fields=["password", "updated_at"])
+            _blacklist_user_tokens(user)
+            return Response(
+                {"message": "Senha redefinida com sucesso!"},
+                status=status.HTTP_200_OK,
+            )
+
+        # Mantém a confirmação por link durante a transição para OTP.
         from django.contrib.auth.tokens import default_token_generator
         from django.utils.http import urlsafe_base64_decode
         from django.utils.encoding import force_str
 
         uidb64 = request.data.get("uidb64")
         token = request.data.get("token")
-        new_password = request.data.get("new_password")
 
         if not uidb64 or not token or not new_password:
             return Response(

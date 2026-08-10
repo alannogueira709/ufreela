@@ -8,8 +8,8 @@ from users.models import Freelancer, Publisher, Role, User
 class OpportunityApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.publisher_role = Role.objects.create(role_name="publisher")
-        self.freelancer_role = Role.objects.create(role_name="freelancer")
+        self.publisher_role, _ = Role.objects.get_or_create(role_name="publisher")
+        self.freelancer_role, _ = Role.objects.get_or_create(role_name="freelancer")
         self.user = User.objects.create_user(
             email="publisher@example.com",
             username="publisher",

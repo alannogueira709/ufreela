@@ -15,7 +15,7 @@ class UserAdmin(BaseUserAdmin):
 		(None, {"fields": ("email", "username", "password")}),
 		(
 			"Informacoes pessoais",
-			{"fields": ("name", "last_name", "role", "oauth_id", "profile_img")},
+			{"fields": ("name", "last_name", "role", "oauth_id", "profile_img", "email_verified", "email_verified_at")},
 		),
 		("Permissoes", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
 		("Datas importantes", {"fields": ("last_login", "date_joined")}),
@@ -40,7 +40,7 @@ class RoleAdmin(admin.ModelAdmin):
 
 @admin.register(Freelancer)
 class FreelancerAdmin(admin.ModelAdmin):
-	list_display = ("user_id", "professional_level", "finished_jobs", "mean_eval")
+	list_display = ("user_id", "profile_title", "professional_level", "finished_jobs", "mean_eval")
 	list_filter = ("professional_level",)
 	search_fields = ("user_id__email", "user_id__username")
 

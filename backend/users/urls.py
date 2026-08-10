@@ -6,17 +6,28 @@ from .views import (CompleteRegistrationView, CookieTokenRefreshView,
                     CsrfTokenView, CustomTokenObtainPairView,
                     FeaturedFreelancersView, FeaturedOpportunitiesView,
                     FreelancerProfileView, FreelancerSkillsView,
-                    HealthCheckView, LogoutView, PublisherProfileView,
-                    RegisterView, SkillListView, SocialLoginSuccessView,
-                    SocialSessionView, UserDataExportView, UserDeleteAccountView,
-                    UserMeView, SaveProfileToggleView, PasswordResetRequestView,
-                    PasswordResetConfirmView)
+                     HealthCheckView, LogoutView, PublisherProfileView,
+                     RegisterView, SkillListView, SocialLoginSuccessView,
+                     SocialSessionView, UserDataExportView, UserDeleteAccountView,
+                     UserMeView, SaveProfileToggleView, PasswordResetRequestView,
+                     PasswordResetConfirmView, EmailVerificationRequestView,
+                     EmailVerificationConfirmView)
 
 urlpatterns = [
     path("health/", HealthCheckView.as_view()),
     path("auth/csrf/", CsrfTokenView.as_view(), name="csrf"),
     path("auth/me/", UserMeView.as_view(), name="me"),
     path("auth/register/", RegisterView.as_view(), name="register"),
+    path(
+        "auth/email/verify/request/",
+        EmailVerificationRequestView.as_view(),
+        name="email_verification_request",
+    ),
+    path(
+        "auth/email/verify/confirm/",
+        EmailVerificationConfirmView.as_view(),
+        name="email_verification_confirm",
+    ),
     path("auth/login/", CustomTokenObtainPairView.as_view(), name="login"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("auth/token/refresh/", CookieTokenRefreshView.as_view(), name="token_refresh"),

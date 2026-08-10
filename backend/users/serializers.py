@@ -44,6 +44,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user is None:
             raise serializers.ValidationError("E-mail ou senha invalidos.")
 
+        if not user.email_verified:
+            raise serializers.ValidationError(
+                {
+                    "error": "Confirme seu email antes de entrar.",
+                    "code": "email_not_verified",
+                }
+            )
+
         refresh = self.get_token(user)
 
         return {

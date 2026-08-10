@@ -2,7 +2,7 @@ argon2-cffi==25.1.0
 argon2-cffi-bindings==25.1.0
 asgiref==3.11.1
 cffi==2.0.0
-cryptography==48.0.1
+cryptography==50.0.0
 Django==6.0.7
 dj-database-url==2.3.0
 django-allauth==65.15.1

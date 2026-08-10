@@ -40,9 +40,20 @@ export interface PasswordResetRequestPayload {
 }
 
 export interface PasswordResetConfirmPayload {
+  email: string;
+  code: string;
+  new_password: string;
+}
+
+export interface LegacyPasswordResetConfirmPayload {
   uidb64: string;
   token: string;
   new_password: string;
+}
+
+export interface EmailVerificationPayload {
+  email: string;
+  code: string;
 }
 
 export async function getCurrentUser() {
@@ -56,6 +67,22 @@ export async function login(payload: LoginPayload) {
 
 export async function register(payload: RegisterPayload) {
   await api.post("/auth/register/", payload);
+}
+
+export async function requestEmailVerification(email: string) {
+  const response = await api.post<{ message: string }>(
+    "/auth/email/verify/request/",
+    { email }
+  );
+  return response.data;
+}
+
+export async function confirmEmailVerification(payload: EmailVerificationPayload) {
+  const response = await api.post<{ message: string }>(
+    "/auth/email/verify/confirm/",
+    payload
+  );
+  return response.data;
 }
 
 export async function logout() {
@@ -91,6 +118,16 @@ export async function requestPasswordReset(payload: PasswordResetRequestPayload)
 }
 
 export async function confirmPasswordReset(payload: PasswordResetConfirmPayload) {
+  const response = await api.post<{ message: string }>(
+    "/auth/password/reset/confirm/",
+    payload
+  );
+  return response.data;
+}
+
+export async function confirmLegacyPasswordReset(
+  payload: LegacyPasswordResetConfirmPayload
+) {
   const response = await api.post<{ message: string }>(
     "/auth/password/reset/confirm/",
     payload

@@ -17,5 +17,13 @@ class PasswordResetConfirmRateThrottle(AnonRateThrottle):
     scope = "password_reset_confirm"
 
 
+class EmailVerificationRateThrottle(AnonRateThrottle):
+    scope = "email_verification"
+
+
+class EmailVerificationConfirmRateThrottle(AnonRateThrottle):
+    scope = "email_verification_confirm"
+
+
 class RefreshRateThrottle(UserRateThrottle):
     scope = "refresh"

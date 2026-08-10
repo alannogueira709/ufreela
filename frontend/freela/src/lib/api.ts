@@ -151,11 +151,26 @@ export const chatService = {
   getConversations: () => chatApi.get("/chat/conversations/"),
   getMessages: (conversationId: number) =>
     chatApi.get(`/chat/conversations/${conversationId}/messages/`),
+  uploadAttachment: (conversationId: number, file: File, content = "") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (content) {
+      formData.append("content", content);
+    }
+
+    return chatApi.post(
+      `/chat/conversations/${conversationId}/attachments/`,
+      formData
+    );
+  },
   createConversation: (otherUserId: string | number) =>
     chatApi.post("/chat/conversations/", { other_user: otherUserId }),
   markAsRead: (conversationId: number) =>
     chatApi.patch(`/chat/conversations/${conversationId}/read/`),
 };
+
+export const getChatAttachmentUrl = (messageId: number) =>
+  `${API_BASE_URL}/chat/messages/${messageId}/attachment/`;
 
 api.interceptors.response.use(
   (response) => response,

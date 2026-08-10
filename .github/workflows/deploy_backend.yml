@@ -94,6 +94,9 @@ jobs:
             GITHUB_CLIENT_SECRET=github-client-secret:latest
             RESEND_API_KEY=resend-api-key:latest
             RESEND_FROM_EMAIL=resend-from-email:latest
+            SUPABASE_S3_ENDPOINT=supabase-s3-endpoint:latest
+            SUPABASE_ACCESS_KEY=supabase-s3-access-key:latest
+            SUPABASE_SECRET_KEY=supabase-s3-secret-key:latest
 
       - name: Show deploy URL
         run: echo "Deploy realizado em ${{ steps.deploy.outputs.url }}"
