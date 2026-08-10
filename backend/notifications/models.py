@@ -2,6 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 
 class Notification(models.Model):
@@ -19,6 +20,7 @@ class Notification(models.Model):
         PROFILE_VIEW = "profile_view", "Visualização de perfil"
         REVIEW_RECEIVED = "review_received", "Avaliação recebida"
         DEADLINE_REMINDER = "deadline_reminder", "Lembrete de prazo"
+        PROFILE_COMPLETION = "profile_completion", "Conclusão do perfil"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
@@ -40,6 +42,13 @@ class Notification(models.Model):
     class Meta:
         db_table = "notifications"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "type"],
+                condition=Q(type="profile_completion"),
+                name="unique_profile_completion_notification",
+            ),
+        ]
 
     def __str__(self):
         return f"[{self.type}] {self.title} → {self.user}"

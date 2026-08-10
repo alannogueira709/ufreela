@@ -29,6 +29,7 @@ function isPublicRoute(pathname: string) {
     pathname === "/login" ||
     pathname === "/register" ||
     pathname === "/reset-password" ||
+    pathname === "/verify-email" ||
     pathname === "/signup" ||
     pathname.startsWith("/auth/")
   );
@@ -38,8 +39,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const shouldLoadCurrentUser =
     typeof window === "undefined" ||
-    (!window.location.pathname.startsWith("/auth/") &&
-      window.location.pathname !== "/reset-password");
+      (!window.location.pathname.startsWith("/auth/") &&
+       window.location.pathname !== "/reset-password" &&
+       window.location.pathname !== "/verify-email");
 
   const { data: user = null, isLoading, refetch } = useQuery<AuthUser | null>({
     queryKey: ["auth", "user"],

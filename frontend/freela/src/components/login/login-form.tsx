@@ -33,6 +33,7 @@ export function LoginForm({
   const [activeSocialProvider, setActiveSocialProvider] =
     useState<SocialProvider | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requiresEmailVerification, setRequiresEmailVerification] = useState(false);
   const [error, setError] = useState(
     searchParams.get("error") === "social_auth_failed"
       ? "Não foi possível autenticar com o provedor escolhido."
@@ -42,6 +43,7 @@ export function LoginForm({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setRequiresEmailVerification(false);
 
     try {
       setIsSubmitting(true);
@@ -50,6 +52,14 @@ export function LoginForm({
       router.push("/");
       router.refresh();
     } catch (error) {
+      const responseData = (
+        error as { response?: { data?: { code?: string | string[] } } }
+      ).response?.data;
+      const responseCode = responseData?.code;
+      setRequiresEmailVerification(
+        responseCode === "email_not_verified" ||
+          (Array.isArray(responseCode) && responseCode.includes("email_not_verified"))
+      );
       setError(
         getApiErrorMessage(
           error,
@@ -82,6 +92,15 @@ export function LoginForm({
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
+        ) : null}
+
+        {requiresEmailVerification ? (
+          <Link
+            href={`/verify-email?email=${encodeURIComponent(formData.email)}`}
+            className="-mt-2 text-center text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            Confirmar email agora
+          </Link>
         ) : null}
 
         <SocialAuthButtons

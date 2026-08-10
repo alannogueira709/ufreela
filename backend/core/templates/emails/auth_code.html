@@ -1,0 +1,30 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<tr>
+  <td style="padding: 40px;">
+    <h2 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em;">
+      {{ title }}
+    </h2>
+    <p style="margin: 0 0 24px; font-size: 15px; color: #475569; line-height: 1.7;">
+      Olá{% if user_name %}, <strong>{{ user_name }}</strong>{% endif %}!
+    </p>
+    <p style="margin: 0 0 24px; font-size: 15px; color: #475569; line-height: 1.7;">
+      {{ message }}
+    </p>
+
+    <div style="margin: 32px 0; padding: 20px; border-radius: 18px; background-color: #eff6ff; text-align: center;">
+      <span style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 700; color: #64748b; letter-spacing: 0.16em; text-transform: uppercase;">
+        Seu código
+      </span>
+      <strong style="font-size: 36px; line-height: 1; color: #2563eb; letter-spacing: 0.28em;">
+        {{ code }}
+      </strong>
+    </div>
+
+    <p style="margin: 0; font-size: 14px; color: #64748b; line-height: 1.6;">
+      O código expira em 15 minutos e só pode ser usado uma vez. Se você não solicitou esta ação, ignore este email.
+    </p>
+  </td>
+</tr>
+{% endblock %}

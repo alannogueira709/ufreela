@@ -188,7 +188,7 @@ export default function RegisterCompletePage() {
       }
 
       if (selectedRole === "freelancer") {
-        router.push("/welcome/freelancer");
+        router.push(`/profile/freelancer/${currentUser.id}`);
       } else {
         router.push(`/profile/publisher/${currentUser.id}`);
       }

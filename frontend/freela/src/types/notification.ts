@@ -4,9 +4,10 @@ export type NotificationType =
   | 'new_message'
   | 'payment_received'
   | 'job_invitation'
-  | 'profile_view'
-  | 'review_received'
-  | 'deadline_reminder';
+   | 'profile_view'
+   | 'review_received'
+   | 'deadline_reminder'
+   | 'profile_completion';
 
 export type NotificationFilter = 'all' | 'unread' | 'proposals' | 'messages' | 'payments';
 

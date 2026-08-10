@@ -7,7 +7,7 @@ import messages.models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("messages", "0001_initial"),
+        ("chat_messages", "0001_initial"),
     ]
 
     operations = [

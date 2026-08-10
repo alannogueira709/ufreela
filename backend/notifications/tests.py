@@ -2,13 +2,18 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from notifications.models import Notification
+from jobs.models import FreelancerSkill, Skill
+from notifications.services import (
+    ensure_profile_completion_notification,
+    mark_profile_completion_notification_read,
+)
 from users.models import Freelancer, Publisher, Role, User
 
 
 class NotificationApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.role = Role.objects.create(role_name="freelancer")
+        self.role, _ = Role.objects.get_or_create(role_name="freelancer")
         self.user = User.objects.create_user(
             email="notifications@example.com",
             username="notifications",
@@ -96,8 +101,8 @@ class NotificationApiTests(TestCase):
 
 class NotificationSignalTests(TestCase):
     def setUp(self):
-        self.freelancer_role = Role.objects.create(role_name="freelancer")
-        self.publisher_role = Role.objects.create(role_name="publisher")
+        self.freelancer_role, _ = Role.objects.get_or_create(role_name="freelancer")
+        self.publisher_role, _ = Role.objects.get_or_create(role_name="publisher")
         
         self.pub_user = User.objects.create_user(
             email="publisher@example.com",
@@ -190,3 +195,46 @@ class NotificationSignalTests(TestCase):
         
         free_notifications = Notification.objects.filter(user=self.free_user, type=Notification.Type.PAYMENT_RECEIVED)
         self.assertTrue(free_notifications.exists())
+
+
+class ProfileCompletionNotificationTests(TestCase):
+    def setUp(self):
+        self.role, _ = Role.objects.get_or_create(role_name="freelancer")
+        self.user = User.objects.create_user(
+            email="profile-completion@example.com",
+            username="profile-completion",
+            password="password123",
+            role=self.role,
+        )
+        self.freelancer = Freelancer.objects.create(user_id=self.user)
+
+    def test_creates_only_one_notification_for_missing_skills(self):
+        first = ensure_profile_completion_notification(self.user)
+        second = ensure_profile_completion_notification(self.user)
+
+        self.assertIsNotNone(first)
+        self.assertEqual(first.id, second.id)
+        self.assertEqual(
+            Notification.objects.filter(
+                user=self.user,
+                type=Notification.Type.PROFILE_COMPLETION,
+            ).count(),
+            1,
+        )
+
+    def test_skills_mark_profile_notification_as_read(self):
+        notification = ensure_profile_completion_notification(self.user)
+        skill, _ = Skill.objects.get_or_create(
+            skill_name="Django",
+            defaults={"skill_slug": "django"},
+        )
+        FreelancerSkill.objects.create(
+            freelancer=self.freelancer,
+            skill=skill,
+            skill_level=FreelancerSkill.SkillLevel.ADVANCED,
+        )
+
+        mark_profile_completion_notification_read(self.user)
+
+        notification.refresh_from_db()
+        self.assertTrue(notification.read)

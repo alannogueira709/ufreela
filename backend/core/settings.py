@@ -499,6 +499,8 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "register": "3/min",                # Abuso de criação de contas
     "password_reset": "3/min",          # Spam de e-mails de reset
     "password_reset_confirm": "5/min",  # Brute-force de token de reset
+    "email_verification": "3/min",      # Spam de e-mails de confirmacao
+    "email_verification_confirm": "5/min",  # Brute-force de OTP
     "refresh": "10/min",                # Rotacao abusiva de refresh tokens
 }
 

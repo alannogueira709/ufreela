@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { OtpCodeField } from "@/components/auth/otp-code-field";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -14,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import {
+  confirmLegacyPasswordReset,
   confirmPasswordReset,
   requestPasswordReset,
 } from "@/lib/auth-service";
@@ -39,9 +41,11 @@ export function ResetPasswordForm({
   const searchParams = useSearchParams();
   const uidb64 = searchParams.get("uidb64");
   const token = searchParams.get("token");
-  const isConfirming = Boolean(uidb64 && token);
+  const isLegacyConfirming = Boolean(uidb64 && token);
 
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"request" | "code">("request");
   const [passwords, setPasswords] = useState({
     newPassword: "",
     confirmPassword: "",
@@ -49,52 +53,118 @@ export function ResetPasswordForm({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setResendCooldown((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSuccess("");
 
+    if (!isLegacyConfirming && step === "request") {
+      try {
+        setIsSubmitting(true);
+        const result = await requestPasswordReset({ email });
+        setSuccess(result.message);
+        setStep("code");
+        setResendCooldown(60);
+      } catch (error) {
+        setError(
+          getApiErrorMessage(
+            error,
+            "Erro ao enviar código de recuperação. Tente novamente mais tarde."
+          )
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    if (!isStrongPassword(passwords.newPassword)) {
+      setError(PASSWORD_HINT);
+      return;
+    }
+
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      setError("As senhas não coincidem. Por favor, tente novamente.");
+      return;
+    }
+
+    if (!isLegacyConfirming && code.length !== 6) {
+      setError("Informe o código de 6 dígitos recebido por email.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
-      if (!isConfirming) {
-        const result = await requestPasswordReset({ email });
-        setSuccess(result.message);
-        return;
-      }
-
-      if (!isStrongPassword(passwords.newPassword)) {
-        setError(PASSWORD_HINT);
-        return;
-      }
-
-      if (passwords.newPassword !== passwords.confirmPassword) {
-        setError("As senhas não coincidem. Por favor, tente novamente.");
-        return;
-      }
-
-      const result = await confirmPasswordReset({
-        uidb64: uidb64 ?? "",
-        token: token ?? "",
-        new_password: passwords.newPassword,
-      });
+      const result = isLegacyConfirming
+        ? await confirmLegacyPasswordReset({
+            uidb64: uidb64 ?? "",
+            token: token ?? "",
+            new_password: passwords.newPassword,
+          })
+        : await confirmPasswordReset({
+            email,
+            code,
+            new_password: passwords.newPassword,
+          });
 
       setSuccess(result.message);
-      setTimeout(() => router.push("/login"), 1800);
+      window.setTimeout(() => router.push("/login"), 1800);
     } catch (error) {
       setError(
         getApiErrorMessage(
           error,
-          isConfirming
-            ? "Não foi possível redefinir sua senha. Tente solicitar um novo link."
-            : "Erro ao enviar e-mail de recuperação. Tente novamente mais tarde."
+          isLegacyConfirming
+            ? "Não foi possível redefinir sua senha. Solicite um novo link."
+            : "Não foi possível redefinir sua senha. Verifique o código e tente novamente."
         )
       );
     } finally {
       setIsSubmitting(false);
     }
   }
+
+  async function handleResendCode() {
+    if (resendCooldown > 0 || isLegacyConfirming) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    try {
+      setIsSubmitting(true);
+      const result = await requestPasswordReset({ email });
+      setSuccess(result.message);
+      setResendCooldown(60);
+    } catch (error) {
+      setError(
+        getApiErrorMessage(
+          error,
+          "Não foi possível reenviar o código. Tente novamente em instantes."
+        )
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const isCodeStep = !isLegacyConfirming && step === "code";
+  const isConfirming = isLegacyConfirming || isCodeStep;
 
   return (
     <form
@@ -108,9 +178,11 @@ export function ResetPasswordForm({
             {isConfirming ? "Crie uma nova senha" : "Recupere sua senha"}
           </h2>
           <p className="text-sm leading-6 text-slate-500">
-            {isConfirming
+            {isLegacyConfirming
               ? "Informe uma senha segura para voltar a acessar sua conta."
-              : "Digite seu e-mail e enviaremos um link para redefinir sua senha."}
+              : isCodeStep
+                ? `Informe o código enviado para ${email} e escolha uma nova senha.`
+                : "Digite seu e-mail e enviaremos um código para redefinir sua senha."}
           </p>
         </div>
 
@@ -124,6 +196,42 @@ export function ResetPasswordForm({
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             {success}
           </div>
+        ) : null}
+
+        {!isConfirming ? (
+          <Field className="gap-2">
+            <FieldLabel
+              htmlFor="email"
+              className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"
+            >
+              E-mail
+            </FieldLabel>
+            <Input
+              id="email"
+              type="email"
+              placeholder="name@company.com"
+              required
+              className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </Field>
+        ) : null}
+
+        {isCodeStep ? (
+          <Field className="items-center gap-3">
+            <FieldLabel className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Código de recuperação
+            </FieldLabel>
+            <OtpCodeField
+              value={code}
+              onChange={setCode}
+              disabled={isSubmitting}
+            />
+            <FieldDescription className="text-center text-xs leading-5 text-slate-400">
+              O código expira em 15 minutos.
+            </FieldDescription>
+          </Field>
         ) : null}
 
         {isConfirming ? (
@@ -178,41 +286,34 @@ export function ResetPasswordForm({
               {PASSWORD_HINT}
             </FieldDescription>
           </>
-        ) : (
-          <Field className="gap-2">
-            <FieldLabel
-              htmlFor="email"
-              className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"
-            >
-              E-mail
-            </FieldLabel>
-            <Input
-              id="email"
-              type="email"
-              placeholder="name@company.com"
-              required
-              className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm shadow-none placeholder:text-slate-400"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </Field>
-        )}
+        ) : null}
 
-        <Field>
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="h-12 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="h-12 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          {isSubmitting
+            ? isConfirming
+              ? "Redefinindo..."
+              : "Enviando..."
+            : isConfirming
+              ? "Redefinir senha"
+              : "Enviar código"}
+        </Button>
+
+        {isCodeStep ? (
+          <button
+            type="button"
+            onClick={() => void handleResendCode()}
+            disabled={isSubmitting || resendCooldown > 0}
+            className="text-sm font-semibold text-blue-600 disabled:cursor-not-allowed disabled:text-slate-400"
           >
-            {isSubmitting
-              ? isConfirming
-                ? "Redefinindo..."
-                : "Enviando..."
-              : isConfirming
-                ? "Redefinir senha"
-                : "Enviar link"}
-          </Button>
-        </Field>
+            {resendCooldown > 0
+              ? `Reenviar código em ${resendCooldown}s`
+              : "Reenviar código"}
+          </button>
+        ) : null}
 
         <FieldDescription className="text-center text-sm text-slate-500">
           Lembrou sua senha?{" "}

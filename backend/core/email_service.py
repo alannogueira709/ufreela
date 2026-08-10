@@ -62,6 +62,35 @@ class EmailService:
             ),
         )
 
+    def send_auth_code_email(self, user, code: str, purpose: str) -> bool:
+        user_name = self._get_user_name(user)
+        is_password_reset = purpose == "password_reset"
+        subject = "Código para redefinir sua senha - uFreela" if is_password_reset else "Confirme seu email - uFreela"
+        title = "Redefinição de senha" if is_password_reset else "Confirme seu email"
+        message = (
+            "Use este código para redefinir sua senha."
+            if is_password_reset
+            else "Use este código para confirmar o email da sua conta."
+        )
+
+        return self.send_templated_email(
+            to=user.email,
+            subject=subject,
+            template_name="emails/auth_code.html",
+            context={
+                "user_name": user_name,
+                "code": code,
+                "title": title,
+                "message": message,
+            },
+            text_body=(
+                f"Olá{', ' + user_name if user_name else ''}!\n\n"
+                f"{message}\n\n"
+                f"Seu código é: {code}\n\n"
+                "Este código expira em 15 minutos e só pode ser usado uma vez.\n"
+            ),
+        )
+
     def send_welcome_email(self, user, role: str = "") -> bool:
         user_name = self._get_user_name(user)
         return self.send_templated_email(

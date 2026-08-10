@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -33,9 +34,11 @@ const iconConfig: Record<NotificationType, { icon: React.ReactNode; bg: string }
   profile_view:      { icon: <Eye className="h-4 w-4 text-cyan-600" />,             bg: 'bg-cyan-100' },
   review_received:   { icon: <Star className="h-4 w-4 text-yellow-500" />,          bg: 'bg-yellow-100' },
   deadline_reminder: { icon: <Clock className="h-4 w-4 text-orange-600" />,         bg: 'bg-orange-100' },
+  profile_completion: { icon: <Briefcase className="h-4 w-4 text-blue-600" />,    bg: 'bg-blue-100' },
 };
 
 export function NotificationItem({ notification, onRead, onDelete }: NotificationItemProps) {
+  const router = useRouter();
   const { icon, bg } = iconConfig[notification.type];
 
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), {
@@ -46,7 +49,14 @@ export function NotificationItem({ notification, onRead, onDelete }: Notificatio
   return (
     <div
       role="listitem"
-      onClick={() => !notification.read && onRead(notification.id)}
+      onClick={() => {
+        if (!notification.read) {
+          void onRead(notification.id);
+        }
+        if (notification.metadata?.action_url) {
+          router.push(notification.metadata.action_url);
+        }
+      }}
       className={cn(
         'group relative flex gap-3 px-4 py-3.5 transition-colors cursor-pointer',
         notification.read

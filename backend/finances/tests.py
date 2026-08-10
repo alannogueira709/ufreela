@@ -56,8 +56,8 @@ class FakeStripe:
 class BillingApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.publisher_role = Role.objects.create(role_name="publisher")
-        self.freelancer_role = Role.objects.create(role_name="freelancer")
+        self.publisher_role, _ = Role.objects.get_or_create(role_name="publisher")
+        self.freelancer_role, _ = Role.objects.get_or_create(role_name="freelancer")
         self.publisher = User.objects.create_user(
             email="publisher-billing@example.com",
             username="publisher-billing",
@@ -193,8 +193,8 @@ class BillingApiTests(TestCase):
 class ContractDashboardApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.publisher_role = Role.objects.create(role_name="publisher")
-        self.freelancer_role = Role.objects.create(role_name="freelancer")
+        self.publisher_role, _ = Role.objects.get_or_create(role_name="publisher")
+        self.freelancer_role, _ = Role.objects.get_or_create(role_name="freelancer")
         self.publisher_user = User.objects.create_user(
             email="publisher-contract@example.com",
             username="publisher-contract",
