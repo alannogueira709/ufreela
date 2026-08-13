@@ -3,14 +3,18 @@ import Link from "next/link";
 import { getFeaturedCandidates } from "@/lib/public-service";
 
 import { SignupForm } from "@/components/register/signup-form";
-
+import { BackButton } from "@/components/ui/back-button";
 
 export default async function Register() {
   const featuredCandidates = await getFeaturedCandidates();
 
   return (
     <main className="min-h-svh bg-slate-100 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="mx-auto flex min-h-[calc(100svh-2rem)] max-w-7xl items-center">
+      <div className="mx-auto flex min-h-[calc(100svh-2rem)] max-w-7xl flex-col justify-center gap-4">
+        <div className="flex items-center justify-between px-1">
+          <BackButton variant="button" />
+        </div>
+
         <div className="grid w-full overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45)] md:grid-cols-[1.02fr_0.98fr]">
           <section className="relative hidden min-h-160 overflow-hidden bg-slate-950 md:flex md:flex-col">
             <Image
