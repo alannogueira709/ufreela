@@ -101,6 +101,20 @@ class OpportunityListCreateView(APIView):
         elif not status_param:
             queryset = queryset.filter(status=Opportunity.Status.OPEN)
 
+        page = request.query_params.get("page")
+        if page:
+            from rest_framework.pagination import PageNumberPagination
+            paginator = PageNumberPagination()
+            page_size = request.query_params.get("page_size", 20)
+            try:
+                paginator.page_size = int(page_size)
+            except (ValueError, TypeError):
+                paginator.page_size = 20
+
+            page_obj = paginator.paginate_queryset(queryset.distinct(), request)
+            serializer = OpportunityListSerializer(page_obj, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
         serializer = OpportunityListSerializer(queryset.distinct(), many=True)
         return Response(serializer.data)
 

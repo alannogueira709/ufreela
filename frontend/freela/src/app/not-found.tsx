@@ -16,7 +16,7 @@ export default function NotFound() {
           ou volte para a página inicial.
         </p>
       </div>
-      <Button render={<Link href="/">Voltar para o início</Link>} />
+      <Button nativeButton={false} render={<Link href="/">Voltar para o início</Link>} />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 import requests
@@ -189,8 +190,9 @@ def connect_github(request):
 
     try:
         imported_count = _sync_github_projects(request.user, connection, per_page=20)
-    except requests.RequestException:
-        return Response({"error": "Failed to sync GitHub repositories"}, status=400)
+    except Exception as exc:
+        logging.getLogger("django").warning("Falha ao sincronizar repositorios do GitHub: %s", exc)
+        imported_count = 0
 
     return Response(
         {
@@ -270,15 +272,39 @@ def disconnect_github(request):
 def _sync_github_projects(user, connection: GitHubConnection, per_page: int) -> int:
     service = GitHubService(connection.access_token)
     repos = service.get_repositories(connection.username, per_page=per_page)
+    if not repos:
+        return 0
+
     enriched = service.enrich_repos(repos, connection.username)
+    if not enriched:
+        return 0
+
+    existing_repos = {
+        p.github_repo_id: p
+        for p in PortfolioProject.objects.filter(user=user, source="github")
+    }
+    to_create = []
+    to_update = []
+
+    for repo in enriched:
+        repo_id = repo["github_repo_id"]
+        if repo_id in existing_repos:
+            project = existing_repos[repo_id]
+            for key, val in repo.items():
+                setattr(project, key, val)
+            project.source = "github"
+            to_update.append(project)
+        else:
+            to_create.append(
+                PortfolioProject(user=user, source="github", **repo)
+            )
 
     with transaction.atomic():
-        for repo in enriched:
-            PortfolioProject.objects.update_or_create(
-                user=user,
-                github_repo_id=repo["github_repo_id"],
-                defaults={"source": "github", **repo},
-            )
+        if to_create:
+            PortfolioProject.objects.bulk_create(to_create)
+        if to_update:
+            update_fields = list(enriched[0].keys()) + ["source"]
+            PortfolioProject.objects.bulk_update(to_update, fields=update_fields)
         connection.repos_fetched = len(enriched)
         connection.save(update_fields=["repos_fetched", "updated_at"])
 

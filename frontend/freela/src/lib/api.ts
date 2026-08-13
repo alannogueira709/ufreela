@@ -172,6 +172,36 @@ export const chatService = {
 export const getChatAttachmentUrl = (messageId: number) =>
   `${API_BASE_URL}/chat/messages/${messageId}/attachment/`;
 
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+function processQueue(error: unknown = null) {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve();
+    }
+  });
+  failedQueue = [];
+}
+
+const AUTH_EXCLUDED_URLS = [
+  "/auth/token/refresh/",
+  "/auth/csrf/",
+  "/auth/login/",
+  "/auth/me/",
+  "/auth/social/",
+];
+
+function isAuthExcludedUrl(url?: string): boolean {
+  if (!url) return false;
+  return AUTH_EXCLUDED_URLS.some((endpoint) => url.includes(endpoint));
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -193,9 +223,20 @@ api.interceptors.response.use(
 
     if (
       error.response?.status === 401 &&
+      !isAuthExcludedUrl(originalRequest.url) &&
       !(originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry
     ) {
       (originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry = true;
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => api(originalRequest))
+          .catch((err) => Promise.reject(err));
+      }
+
+      isRefreshing = true;
 
       try {
         const csrfToken = await ensureCsrfToken();
@@ -205,21 +246,23 @@ api.interceptors.response.use(
           {},
           {
             withCredentials: true,
-            headers: csrfToken
-              ? {
-                  [CSRF_HEADER_NAME]: csrfToken,
-                }
-              : undefined,
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+              ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
+            },
           }
         );
 
+        processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {
+        processQueue(refreshError);
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("unauthorized"));
         }
-
         return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 

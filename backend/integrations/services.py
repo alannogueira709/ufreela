@@ -117,7 +117,9 @@ class GitHubService:
             if repo.get("fork"):
                 continue
 
-            languages = self.get_repo_languages(username, repo["name"])
+            lang = repo.get("language")
+            languages = [lang] if lang else []
+
             enriched.append(
                 {
                     "github_repo_id": repo["id"],

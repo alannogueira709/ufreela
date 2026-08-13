@@ -28,10 +28,20 @@ async function ensureCsrfCookie(): Promise<string | null> {
   const token = getCookie("csrftoken");
   if (token) return token;
 
-  await fetch(`${getBackendOrigin()}/api/auth/csrf/`, {
-    method: "GET",
-    credentials: "include",
-  });
+  try {
+    const res = await fetch(`${getBackendOrigin()}/api/auth/csrf/`, {
+      method: "GET",
+      credentials: "include",
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data && data.csrfToken) {
+        return data.csrfToken;
+      }
+    }
+  } catch (err) {
+    console.warn("Falha ao obter CSRF via API:", err);
+  }
 
   return getCookie("csrftoken");
 }
@@ -40,16 +50,11 @@ export async function initiateSocialLogin(
   provider: SocialProvider,
   process: SocialAuthProcess = "login"
 ) {
-  const csrfToken = await ensureCsrfCookie();
-  if (!csrfToken) {
-    throw new Error("Não foi possível obter o token CSRF.");
-  }
+  const csrfToken = (await ensureCsrfCookie()) || "";
 
   const callbackUrl = `${getFrontendOrigin()}/auth/social/callback`;
 
-  // allauth headless only accepts "login" or "connect" as the process value.
-  // Treat any other value (e.g. a legacy "signup") as "login" so that new
-  // users are automatically signed up.
+  // allauth headless só aceita "login" ou "connect".
   const normalizedProcess = process === "connect" ? "connect" : "login";
 
   const form = document.createElement("form");
@@ -68,7 +73,9 @@ export async function initiateSocialLogin(
   addField("provider", provider);
   addField("callback_url", callbackUrl);
   addField("process", normalizedProcess);
-  addField("csrfmiddlewaretoken", csrfToken);
+  if (csrfToken) {
+    addField("csrfmiddlewaretoken", csrfToken);
+  }
 
   document.body.appendChild(form);
   form.submit();
