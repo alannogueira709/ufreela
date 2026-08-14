@@ -71,7 +71,9 @@ export function BackButton({
     }
   }, []);
 
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>) => {
+  const handleClick = (
+    e: import("react").MouseEvent<HTMLAnchorElement | HTMLButtonElement>
+  ) => {
     if (!href && !redirectParam && canGoBack) {
       e.preventDefault();
       router.back();
