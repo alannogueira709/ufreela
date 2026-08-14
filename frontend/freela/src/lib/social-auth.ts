@@ -50,7 +50,10 @@ export async function initiateSocialLogin(
   provider: SocialProvider,
   process: SocialAuthProcess = "login"
 ) {
-  const csrfToken = (await ensureCsrfCookie()) || "";
+  const csrfToken = await ensureCsrfCookie();
+  if (!csrfToken) {
+    throw new Error("Não foi possível obter o token CSRF.");
+  }
 
   const callbackUrl = `${getFrontendOrigin()}/auth/social/callback`;
 
