@@ -56,13 +56,19 @@ export function BackButton({
   const searchParams = useSearchParams();
   const [canGoBack, setCanGoBack] = useState(false);
 
-  const redirectParam =
+  const rawRedirectParam =
     searchParams.get("redirect") ||
     searchParams.get("from") ||
     searchParams.get("next");
 
+  const redirectParam =
+    rawRedirectParam && rawRedirectParam.startsWith("/") && !rawRedirectParam.startsWith("//")
+      ? rawRedirectParam
+      : null;
+
   const targetPath = href || redirectParam || fallbackUrl;
-  const computedLabel = label || (redirectParam ? `Voltar para ${getLabelForPath(redirectParam)}` : "Voltar");
+  const computedLabel =
+    label || (redirectParam ? `Voltar para ${getLabelForPath(redirectParam)}` : "Voltar");
   const originLabel = redirectParam ? getLabelForPath(redirectParam) : "Início";
 
   useEffect(() => {
