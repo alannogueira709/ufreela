@@ -49,11 +49,17 @@ export function LoginForm({
       setIsSubmitting(true);
       await login(formData);
 
-      const redirectUrl =
+      const redirectUrlRaw =
         searchParams.get("redirect") ||
         searchParams.get("from") ||
         searchParams.get("next") ||
         "/";
+
+      const redirectUrl =
+        redirectUrlRaw.startsWith("/") && !redirectUrlRaw.startsWith("//")
+          ? redirectUrlRaw
+          : "/";
+
       router.push(redirectUrl);
       router.refresh();
     } catch (error) {
