@@ -107,7 +107,7 @@ class OpportunityListCreateView(APIView):
             paginator = PageNumberPagination()
             page_size = request.query_params.get("page_size", 20)
             try:
-                paginator.page_size = int(page_size)
+                paginator.page_size = min(int(page_size), 100)
             except (ValueError, TypeError):
                 paginator.page_size = 20
 
