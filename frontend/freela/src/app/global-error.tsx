@@ -30,7 +30,7 @@ export default function GlobalError({
           </div>
           <div className="flex gap-3">
             <Button onClick={reset}>Tentar novamente</Button>
-            <Button variant="outline" render={<Link href="/">Ir para o início</Link>} />
+            <Button variant="outline" nativeButton={false} render={<Link href="/">Ir para o início</Link>} />
           </div>
         </div>
       </body>

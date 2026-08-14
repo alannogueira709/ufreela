@@ -252,8 +252,13 @@ export async function getFeaturedJobs() {
 }
 
 export async function getFeaturedCandidates() {
-  const data = await serverGet<ApiFreelancer[]>("/freelancers/featured/");
-  return data.map(mapFreelancerToCandidate);
+  try {
+    const data = await serverGet<ApiFreelancer[]>("/freelancers/featured/");
+    return data.map(mapFreelancerToCandidate);
+  } catch (error) {
+    console.error("Erro ao buscar candidatos em destaque:", error);
+    return [];
+  }
 }
 
 export async function getFreelancerProfile(userId: string) {

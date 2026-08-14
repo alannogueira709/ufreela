@@ -13,6 +13,7 @@ from notifications.services import (
     ensure_profile_completion_notification,
     mark_profile_completion_notification_read,
 )
+from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 from jobs.models import FreelancerSkill, Opportunity, Skill
 from rest_framework import status
@@ -115,7 +116,11 @@ class CsrfTokenView(APIView):
         # fluxo OAuth. O allauth precisa desse cookie para armazenar o state.
         if not request.session.session_key:
             request.session.save()
-        return Response({"message": "CSRF cookie definido com sucesso."})
+        token = get_token(request)
+        return Response({
+            "message": "CSRF cookie definido com sucesso.",
+            "csrfToken": token,
+        })
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -244,7 +249,7 @@ class HealthCheckView(APIView):
 
         status_code = (
             status.HTTP_200_OK
-            if checks["status"] == "ok"
+            if checks.get("database") == "ok"
             else status.HTTP_503_SERVICE_UNAVAILABLE
         )
         return Response(checks, status=status_code)
@@ -343,7 +348,12 @@ class UserMeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(self._serialize_user(request.user))
+        user = (
+            User.objects.select_related("role", "freelancer_profile", "publisher_profile")
+            .prefetch_related("freelancer_profile__skills__skill")
+            .get(pk=request.user.pk)
+        )
+        return Response(self._serialize_user(user))
 
     def patch(self, request):
         user = request.user

@@ -49,7 +49,18 @@ export function LoginForm({
       setIsSubmitting(true);
       await login(formData);
 
-      router.push("/");
+      const redirectUrlRaw =
+        searchParams.get("redirect") ||
+        searchParams.get("from") ||
+        searchParams.get("next") ||
+        "/";
+
+      const redirectUrl =
+        redirectUrlRaw.startsWith("/") && !redirectUrlRaw.startsWith("//")
+          ? redirectUrlRaw
+          : "/";
+
+      router.push(redirectUrl);
       router.refresh();
     } catch (error) {
       const responseData = (
@@ -175,7 +186,13 @@ export function LoginForm({
         <FieldDescription className="text-center text-sm text-slate-500">
           Não tem uma conta?{" "}
           <Link
-            href="/register"
+            href={
+              searchParams.get("redirect") || searchParams.get("from")
+                ? `/register?redirect=${encodeURIComponent(
+                    searchParams.get("redirect") || searchParams.get("from") || ""
+                  )}`
+                : "/register"
+            }
             className="font-semibold text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline"
           >
             Registre-se

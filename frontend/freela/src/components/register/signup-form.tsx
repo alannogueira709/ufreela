@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
 import { OtpCodeField } from "@/components/auth/otp-code-field";
@@ -41,6 +41,15 @@ export function SignupForm({
   ...props
 }: React.ComponentProps<"form">) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParamRaw = searchParams.get("redirect") || searchParams.get("from");
+  const redirectParam =
+    redirectParamRaw && redirectParamRaw.startsWith("/") && !redirectParamRaw.startsWith("//")
+      ? redirectParamRaw
+      : null;
+  const loginHref = redirectParam
+    ? `/login?redirect=${encodeURIComponent(redirectParam)}`
+    : "/login";
   const { login, register } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
@@ -330,7 +339,7 @@ export function SignupForm({
             <FieldDescription className="text-center text-sm text-slate-500">
               Já tem uma conta?{" "}
               <Link
-                href="/login"
+                href={loginHref}
                 className="font-semibold text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline"
               >
                 Faça login
