@@ -74,8 +74,7 @@ function SocialCallbackContent() {
           } catch {
             queryClient.invalidateQueries({ queryKey: ["auth", "user"] });
           }
-          window.location.href = data.redirect_url;
-        } else {
+          router.replace(data.redirect_url);
           throw new Error("not_authenticated");
         }
       })
