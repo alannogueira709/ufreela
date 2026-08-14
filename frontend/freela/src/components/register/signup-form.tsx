@@ -42,8 +42,14 @@ export function SignupForm({
 }: React.ComponentProps<"form">) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectParam = searchParams.get("redirect") || searchParams.get("from");
-  const loginHref = redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : "/login";
+  const redirectParamRaw = searchParams.get("redirect") || searchParams.get("from");
+  const redirectParam =
+    redirectParamRaw && redirectParamRaw.startsWith("/") && !redirectParamRaw.startsWith("//")
+      ? redirectParamRaw
+      : null;
+  const loginHref = redirectParam
+    ? `/login?redirect=${encodeURIComponent(redirectParam)}`
+    : "/login";
   const { login, register } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
