@@ -13,7 +13,8 @@ from notifications.services import (
     ensure_profile_completion_notification,
     mark_profile_completion_notification_read,
 )
-from django.middleware.csrf import ensure_csrf_cookie, get_token
+from django.middleware.csrf import get_token
+from django.views.decorators.csrf import ensure_csrf_cookie
 from jobs.models import FreelancerSkill, Opportunity, Skill
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
