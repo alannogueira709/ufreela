@@ -272,8 +272,6 @@ def disconnect_github(request):
 def _sync_github_projects(user, connection: GitHubConnection, per_page: int) -> int:
     service = GitHubService(connection.access_token)
     repos = service.get_repositories(connection.username, per_page=per_page)
-    if not repos:
-        return 0
 
     enriched = service.enrich_repos(repos, connection.username)
     if not enriched:
